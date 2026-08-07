@@ -2,10 +2,10 @@
 .godot/
 /android/
 
-# Exports
+# Exports - build output stays out, but the preset itself is tracked so CI
+# can reproduce the web export (contains no signing keys or secrets)
 /export/
 /builds/
-export_presets.cfg
 
 #Claude
 .claude/
