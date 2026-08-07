@@ -9,6 +9,8 @@ extends Node2D
 signal died(enemy: Node)
 signal reached_goal(enemy: Node)
 
+const FLOATING_TEXT_SCENE := preload("res://scenes/FloatingText.tscn")
+
 enum Rank { BASIC, CAPTAIN, BOSS }
 
 const RADIUS := {
@@ -103,8 +105,18 @@ func take_damage(amount: float, attacker_element: int) -> void:
 	queue_redraw()
 	if health <= 0.0:
 		GameManager.add_gold(gold_reward)
+		_show_gold_reward()
 		died.emit(self)
 		queue_free()
+
+
+## The popup has to outlive this node, so it goes to the parent (Entities) -
+## the same reason Tower parents its projectiles there rather than to itself.
+func _show_gold_reward() -> void:
+	var popup := FLOATING_TEXT_SCENE.instantiate()
+	get_parent().add_child(popup)
+	popup.global_position = aim_position()
+	popup.setup("+%d" % gold_reward)
 
 
 func _on_reached_goal() -> void:

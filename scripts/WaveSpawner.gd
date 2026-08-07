@@ -4,12 +4,21 @@ extends Node2D
 ## live to the grid changing (e.g. a shortcut opening).
 ##
 ## Wave composition scales through both headcount and enemy strength, per the
-## scaling decision in BALANCE.md.
+## scaling decision in DESIGN_DOC.md's Gold section.
 
 signal wave_started(wave_number: int)
 signal wave_cleared(wave_number: int)
 
 const ENEMY_SCENE := preload("res://scenes/Enemy.tscn")
+
+## Gold per kill, flat across every wave - the values in DESIGN_DOC.md's Balance
+## section, paid literally. This deliberately does NOT scale with the wave
+## number, while the design's Gold section still calls for rewards that grow per
+## round; the two disagree until that's decided (DESIGN_DOC, open questions).
+const GOLD_BASIC := 5
+const GOLD_ALL_RESIST := 10
+const GOLD_CAPTAIN := 20
+const GOLD_BOSS := 50
 
 @export var entities_path: NodePath = ^"../Entities"
 @export var wave_interval_seconds: float = 25.0
@@ -64,14 +73,13 @@ func _start_next_wave() -> void:
 func _wave_composition(wave: int) -> Array[Dictionary]:
 	var specs: Array[Dictionary] = []
 	var basic_health := 30.0 * pow(1.12, wave - 1)
-	var basic_gold := 5 + wave / 2
 
 	for i in 6 + wave * 2:
 		specs.append({
 			"element": ElementTypes.ALL[i % ElementTypes.ALL.size()],
 			"health": basic_health,
 			"speed": 60.0,
-			"gold": basic_gold,
+			"gold": GOLD_BASIC,
 			"lives": 1,
 			"rank": Enemy.Rank.BASIC,
 			"flying": ElementTypes.ALL[i % ElementTypes.ALL.size()] == ElementTypes.Element.AIR,
@@ -82,7 +90,7 @@ func _wave_composition(wave: int) -> Array[Dictionary]:
 			"element": ElementTypes.Element.EARTH,
 			"health": basic_health * 1.7,
 			"speed": 60.0,
-			"gold": basic_gold * 2,
+			"gold": GOLD_ALL_RESIST,
 			"lives": 1,
 			"rank": Enemy.Rank.BASIC,
 			"all_resist": true,
@@ -93,7 +101,7 @@ func _wave_composition(wave: int) -> Array[Dictionary]:
 			"element": ElementTypes.ALL[wave % ElementTypes.ALL.size()],
 			"health": basic_health * 3.0,
 			"speed": 60.0,
-			"gold": 20 + wave,
+			"gold": GOLD_CAPTAIN,
 			"lives": 3,
 			"rank": Enemy.Rank.CAPTAIN,
 		})
@@ -103,7 +111,7 @@ func _wave_composition(wave: int) -> Array[Dictionary]:
 			"element": ElementTypes.ALL[(wave + 1) % ElementTypes.ALL.size()],
 			"health": basic_health * 7.0,
 			"speed": 45.0,
-			"gold": 50 + wave * 2,
+			"gold": GOLD_BOSS,
 			"lives": 5,
 			"rank": Enemy.Rank.BOSS,
 		})

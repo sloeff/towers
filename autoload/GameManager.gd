@@ -28,7 +28,7 @@ var is_over: bool = false
 
 ## Elements the player is allowed to build, in the order they were unlocked.
 ## Empty until the start-of-run element pick, which unlocks exactly one. The
-## elemental token economy (COMBO_TOWERS.md) will extend this list later; it is
+## elemental token economy (DESIGN_DOC.md section 8) will extend this list; it is
 ## an array rather than a single value for that reason.
 var unlocked_elements: Array[int] = []
 

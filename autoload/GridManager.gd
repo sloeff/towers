@@ -40,7 +40,8 @@ const FLOOR_SORT_BIAS := -TILE_HEIGHT
 
 const GRID_SIZE := Vector2i(14, 13)
 
-## Corners of the enemy route (see MAP_LAYOUT.md). Straight segments between
+## Corners of the enemy route (see DESIGN_DOC.md, "Level design and map
+## layout"). Straight segments between
 ## consecutive entries are filled in to produce the walkable cells, so every
 ## turn is a 90-degree corner.
 const ROUTE := [

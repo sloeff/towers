@@ -1,7 +1,7 @@
 extends Panel
 ## Start-of-run element pick. The player commits to one element and can only
 ## build that element's towers; more are unlocked later through the elemental
-## token economy (COMBO_TOWERS.md, not implemented yet).
+## token economy (DESIGN_DOC.md section 8, not implemented yet).
 ##
 ## Cards are generated from ElementTypes.DATA, so adding an element needs no
 ## scene change - same rule as the HUD's build bar. Each card leaves a fixed

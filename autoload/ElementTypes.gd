@@ -3,7 +3,8 @@ extends Node
 ## - Same element as target: 75% damage
 ## - Opposite element (fire<->water, earth<->air): 125% damage
 ## - Any other combination: 100% damage
-## Also holds the per-element presentation and basic-tower stats (BALANCE.md).
+## Also holds the per-element presentation and basic-tower stats
+## (DESIGN_DOC.md, "Balance").
 ## Registered in project.godot under [autoload] as "ElementTypes".
 
 enum Element { FIRE, WATER, EARTH, AIR }
