@@ -10,6 +10,34 @@ signal grid_changed
 const TILE_WIDTH := 64.0
 const TILE_HEIGHT := 32.0
 
+## How far below the buildable plateau the route sits, in pixels. Grid logic
+## (pathing, build validity, mouse picking) stays on the flat plane; only
+## surface positions and drawing apply the drop.
+##
+const RAVINE_DEPTH := 18.0
+
+## Raised geometry - the grass plateau and anything standing on it - is placed
+## this far below its cell centre purely so it sorts nearer the camera, and
+## draws itself back up by the same amount.
+##
+## Y-sorting alone can't express elevation. A unit crossing a tile sweeps
+## exactly TILE_HEIGHT * 0.5 of sort key, which is also the spacing between
+## neighbouring tiles' keys, so without a bias it overtakes the block beside
+## it partway across every tile and their draw order flips - a one pixel
+## flicker at the lip. Biasing raised geometry past the unit's whole sweep
+## makes "in front and raised" win everywhere on the tile.
+##
+## Must stay inside (RAVINE_DEPTH, RAVINE_DEPTH + TILE_HEIGHT * 0.5): below
+## that and front blocks stop occluding units, above it and blocks behind
+## start to.
+const RAISED_SORT_BIAS := 26.0
+
+## Route floor tiles sort a whole tile further from the camera than their
+## centre. The ground never occludes what stands on it, so a floor tile must
+## never overtake a unit clipping the corner of a neighbouring cell - which is
+## what happened at the route's 90-degree bends before this existed.
+const FLOOR_SORT_BIAS := -TILE_HEIGHT
+
 const GRID_SIZE := Vector2i(14, 13)
 
 ## Corners of the enemy route (see MAP_LAYOUT.md). Straight segments between
@@ -94,6 +122,16 @@ func find_path(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
 
 func cell_to_world(cell: Vector2i) -> Vector2:
 	return Vector2((cell.x - cell.y) * TILE_WIDTH * 0.5, (cell.x + cell.y) * TILE_HEIGHT * 0.5)
+
+
+## Where something standing on this cell actually sits on screen: the ravine
+## floor for route cells, the plateau for everything else. Anything that gets
+## drawn or y-sorted should be placed here rather than at cell_to_world().
+func cell_to_surface(cell: Vector2i) -> Vector2:
+	var pos := cell_to_world(cell)
+	if path_cells.has(cell):
+		pos.y += RAVINE_DEPTH
+	return pos
 
 
 func world_to_cell(world_pos: Vector2) -> Vector2i:

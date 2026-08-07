@@ -20,7 +20,7 @@ func _process(delta: float) -> void:
 		queue_free()
 		return
 
-	var aim: Vector2 = _target.global_position + Vector2(0.0, -10.0)
+	var aim: Vector2 = _target.aim_position()
 	var to_target: Vector2 = aim - global_position
 	if to_target.length() < 10.0:
 		_target.take_damage(_damage, _element)

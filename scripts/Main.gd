@@ -96,7 +96,9 @@ func _try_place_tower() -> void:
 	tower.configure(selected_element)
 	tower.cell = cell
 	entities.add_child(tower)
-	tower.global_position = GridManager.cell_to_world(cell)
+	# Placed low by the raised-geometry sort bias; Tower draws itself back up.
+	tower.global_position = GridManager.cell_to_world(cell) \
+		+ Vector2(0.0, GridManager.RAISED_SORT_BIAS)
 	GridManager.set_occupied(cell, true)
 	_towers_by_cell[cell] = tower
 	_update_hover()

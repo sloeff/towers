@@ -56,8 +56,15 @@ func configure(spec: Dictionary) -> void:
 ## Called by WaveSpawner to place this enemy and give it a destination.
 func start_at(spawn_cell: Vector2i, goal: Vector2i) -> void:
 	_goal_cell = goal
-	global_position = GridManager.cell_to_world(spawn_cell)
+	global_position = GridManager.cell_to_surface(spawn_cell)
 	_request_path(spawn_cell)
+
+
+## The enemy's position on the flat grid plane, with the ravine drop taken
+## back out. Use this for anything spatial - pathing, tower range - because
+## global_position is where the unit is *drawn*, down on the ravine floor.
+func ground_position() -> Vector2:
+	return global_position - Vector2(0.0, GridManager.RAVINE_DEPTH)
 
 
 func _request_path(from_cell: Vector2i) -> void:
@@ -71,13 +78,13 @@ func _request_path(from_cell: Vector2i) -> void:
 func _on_grid_changed() -> void:
 	if is_flying:
 		return  # flying units aren't affected by ground shortcuts/obstacles
-	_request_path(GridManager.world_to_cell(global_position))
+	_request_path(GridManager.world_to_cell(ground_position()))
 
 
 func _process(delta: float) -> void:
 	if _index >= _path.size():
 		return
-	var target := GridManager.cell_to_world(_path[_index])
+	var target := GridManager.cell_to_surface(_path[_index])
 	var to_target := target - global_position
 	var step := speed * delta
 	if to_target.length() <= step:
@@ -106,10 +113,16 @@ func _on_reached_goal() -> void:
 	queue_free()
 
 
+## Where projectiles should aim: the centre of the body, which sits a radius
+## above the unit's feet.
+func aim_position() -> Vector2:
+	return global_position + Vector2(0.0, -RADIUS[rank])
+
+
 func _draw() -> void:
 	var radius: float = RADIUS[rank]
 	var color: Color = Color(0.75, 0.75, 0.75) if all_resist else ElementTypes.color_of(element)
-	draw_circle(Vector2(0.0, radius * 0.35), radius * 0.9, Color(0.0, 0.0, 0.0, 0.25))
+	draw_circle(Vector2(0.0, radius * 0.35), radius * 0.9, Color(0.0, 0.0, 0.0, 0.3))
 	draw_circle(Vector2(0.0, -radius), radius, color)
 	draw_arc(Vector2(0.0, -radius), radius, 0.0, TAU, 20, color.darkened(0.5), 2.0)
 
