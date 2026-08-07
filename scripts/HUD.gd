@@ -4,6 +4,7 @@ extends CanvasLayer
 ## doesn't need a scene change.
 
 signal element_selected(element: int)
+signal starting_element_chosen(element: int)
 signal next_wave_requested
 signal restart_requested
 
@@ -20,6 +21,7 @@ const MESSAGE_SECONDS := 1.5
 @onready var result_title: Label = $ResultPanel/Center/Box/TitleLabel
 @onready var result_detail: Label = $ResultPanel/Center/Box/DetailLabel
 @onready var restart_button: Button = $ResultPanel/Center/Box/RestartButton
+@onready var element_select: Panel = $ElementSelectPanel
 
 var _spawner: Node = null
 var _message_timeout: float = 0.0
@@ -30,18 +32,29 @@ func _ready() -> void:
 	_build_element_buttons()
 	next_wave_button.pressed.connect(func() -> void: next_wave_requested.emit())
 	restart_button.pressed.connect(func() -> void: restart_requested.emit())
+	element_select.element_chosen.connect(_on_starting_element_chosen)
 
 	GameManager.gold_changed.connect(_on_gold_changed)
 	GameManager.lives_changed.connect(_on_lives_changed)
 	GameManager.wave_changed.connect(_on_wave_changed)
+	GameManager.elements_changed.connect(_refresh_element_buttons)
 	_on_gold_changed(GameManager.gold)
 	_on_lives_changed(GameManager.lives)
 	_on_wave_changed(GameManager.wave_number)
-	_select(ElementTypes.Element.FIRE)
+	_refresh_element_buttons()
 
 
 func set_spawner(spawner: Node) -> void:
 	_spawner = spawner
+
+
+func show_element_select() -> void:
+	element_select.visible = true
+
+
+func _on_starting_element_chosen(element: int) -> void:
+	element_select.visible = false
+	starting_element_chosen.emit(element)
 
 
 func _build_element_buttons() -> void:
@@ -51,13 +64,29 @@ func _build_element_buttons() -> void:
 		button.toggle_mode = true
 		button.custom_minimum_size = Vector2(120.0, 44.0)
 		button.text = "%s\n%d g" % [data["name"], data["cost"]]
-		button.add_theme_color_override("font_color", data["color"])
-		button.pressed.connect(_select.bind(element))
+		button.add_theme_color_override("font_color", ElementTypes.text_color_of(element))
+		button.pressed.connect(select_element.bind(element))
 		element_buttons.add_child(button)
 		_buttons[element] = button
 
 
-func _select(element: int) -> void:
+## The bar only shows elements the player has unlocked - before the start-of-run
+## pick that's none of them, and the pick panel is covering the bar anyway.
+func _refresh_element_buttons() -> void:
+	for element in _buttons:
+		var button: Button = _buttons[element]
+		var unlocked: bool = GameManager.is_element_unlocked(element)
+		button.visible = unlocked
+		if not unlocked:
+			button.button_pressed = false
+
+
+## Pick which element the next tower will be. Locked elements are ignored - they
+## have no button, but the guard also covers callers outside the bar.
+func select_element(element: int) -> void:
+	if not GameManager.is_element_unlocked(element):
+		_refresh_element_buttons()
+		return
 	for key in _buttons:
 		_buttons[key].button_pressed = key == element
 	element_selected.emit(element)

@@ -14,7 +14,8 @@ const KEYBOARD_PAN_SPEED := 600.0
 @onready var spawner: Node2D = $WaveSpawner
 @onready var hud: CanvasLayer = $HUD
 
-var selected_element: int = ElementTypes.Element.FIRE
+## -1 until the player picks their starting element.
+var selected_element: int = -1
 
 var _towers_by_cell := {}
 var _panning := false
@@ -25,10 +26,27 @@ func _ready() -> void:
 	GameManager.game_over.connect(_on_game_over)
 	GameManager.victory.connect(_on_victory)
 	hud.element_selected.connect(_on_element_selected)
+	hud.starting_element_chosen.connect(_on_starting_element_chosen)
 	hud.next_wave_requested.connect(spawner.start_next_wave_early)
 	hud.restart_requested.connect(_restart)
 	hud.set_spawner(spawner)
 	_center_camera()
+	_begin_element_select()
+
+
+## The run doesn't start until the player commits to an element. Pausing holds
+## the wave timer and everything else behind the panel, which has
+## process_mode = Always so its buttons still respond - same trick as the
+## end-of-run ResultPanel.
+func _begin_element_select() -> void:
+	get_tree().paused = true
+	hud.show_element_select()
+
+
+func _on_starting_element_chosen(element: int) -> void:
+	GameManager.unlock_element(element)
+	hud.select_element(element)
+	get_tree().paused = false
 
 
 func _center_camera() -> void:
@@ -71,7 +89,8 @@ func _zoom_by(factor: float) -> void:
 func _update_hover() -> void:
 	var cell := GridManager.world_to_cell(get_global_mouse_position())
 	map.hover_cell = cell
-	map.hover_valid = GridManager.can_build(cell) and GameManager.gold >= _selected_cost()
+	map.hover_valid = selected_element != -1 and GridManager.can_build(cell) \
+		and GameManager.gold >= _selected_cost()
 	var tower: Node2D = _towers_by_cell.get(cell)
 	for placed in _towers_by_cell.values():
 		placed.show_range = placed == tower
@@ -83,6 +102,9 @@ func _selected_cost() -> int:
 
 func _try_place_tower() -> void:
 	if GameManager.is_over:
+		return
+	if not GameManager.is_element_unlocked(selected_element):
+		hud.flash_message("Pick an element first")
 		return
 	var cell := GridManager.world_to_cell(get_global_mouse_position())
 	if not GridManager.can_build(cell):

@@ -1,6 +1,7 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/HUD.gd" id="1_hud"]
+[ext_resource type="Script" path="res://scripts/ElementSelect.gd" id="2_element_select"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_topbar"]
 bg_color = Color(0.07, 0.08, 0.11, 0.85)
@@ -118,3 +119,43 @@ horizontal_alignment = 1
 layout_mode = 2
 custom_minimum_size = Vector2(180, 48)
 text = "Restart"
+
+[node name="ElementSelectPanel" type="Panel" parent="."]
+process_mode = 3
+visible = false
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_dim")
+script = ExtResource("2_element_select")
+
+[node name="Center" type="CenterContainer" parent="ElementSelectPanel"]
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Box" type="VBoxContainer" parent="ElementSelectPanel/Center"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="ElementSelectPanel/Center/Box"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "Choose your element"
+horizontal_alignment = 1
+
+[node name="SubtitleLabel" type="Label" parent="ElementSelectPanel/Center/Box"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.64, 0.67, 0.73, 1)
+theme_override_font_sizes/font_size = 17
+text = "You can only build towers of the element you pick. More unlock as you survive."
+horizontal_alignment = 1
+
+[node name="Cards" type="HBoxContainer" parent="ElementSelectPanel/Center/Box"]
+layout_mode = 2
+theme_override_constants/separation = 14
+alignment = 1

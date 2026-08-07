@@ -5,6 +5,11 @@ deliberately scoped-down MVP of the full design doc: single player, one
 map, 4 basic elemental towers, no upgrades/combos/potions/items/
 multiplayer yet.
 
+A run opens with the element pick from COMBO_TOWERS.md - you commit to
+one of the four elements and can only build that element's towers. The
+token economy that unlocks the rest isn't built yet, so for now one run
+means one element.
+
 The core loop is playable end to end:
 
   waves spawn -> towers detect + shoot -> elemental damage applies ->
@@ -56,6 +61,7 @@ scripts/
   Projectile.gd     - homing shot, applies damage on hit
   WaveSpawner.gd    - wave composition and timing
   HUD.gd            - readout, element buttons, end-of-run panel
+  ElementSelect.gd  - start-of-run "choose your element" panel
 ```
 
 ## Art
@@ -82,8 +88,13 @@ expanding past it:
   enemies), but they're first-draft and untuned.
 - **Combination tower open questions** - the interaction and cost model
   are now designed (token-based, gold cost on top - see
-  COMBO_TOWERS.md), but the gold amounts are still unresolved. Nothing
-  from this system is implemented yet.
+  COMBO_TOWERS.md), but the gold amounts are still unresolved. The
+  start-of-run element pick is implemented; earning and spending tokens,
+  and transforming towers, are not.
+- **Element pros and cons** - the pick screen reserves a block per card
+  for them (`ElementTypes.DATA[...]["pros"]` / `["cons"]`, one bullet per
+  entry). Both are empty because the per-element strengths and weaknesses
+  beyond the raw stats aren't designed yet.
 - **Experience / tower leveling** - designed in DESIGN_DOC.md, not
   implemented yet.
 - **Multiplayer** - "players see each other in realtime" is a networking

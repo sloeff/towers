@@ -17,6 +17,14 @@ const OPPOSITES := {
 	Element.AIR: Element.EARTH,
 }
 
+## Per-element presentation and basic-tower stats.
+##
+## "role" is the one-line pitch shown on the start-of-run element pick, taken
+## from the tower lists in DESIGN_DOC.md. "pros" and "cons" are the reserved
+## slots for that screen's detailed sell - each entry becomes one bullet. They
+## are deliberately empty: the per-element pros and cons aren't designed yet
+## (see the README's open questions), and the card keeps the space either way
+## so filling them in later doesn't shift the layout.
 const DATA := {
 	Element.FIRE: {
 		"name": "Fire",
@@ -25,6 +33,9 @@ const DATA := {
 		"damage": 8.0,
 		"fire_rate": 1.2,
 		"range": 170.0,
+		"role": "Damage. Later towers add burning damage over time and area attacks.",
+		"pros": [],
+		"cons": [],
 	},
 	Element.WATER: {
 		"name": "Water",
@@ -33,6 +44,9 @@ const DATA := {
 		"damage": 6.0,
 		"fire_rate": 1.0,
 		"range": 190.0,
+		"role": "Control. Later towers slow and freeze, from one target up to whole groups.",
+		"pros": [],
+		"cons": [],
 	},
 	Element.EARTH: {
 		"name": "Earth",
@@ -41,6 +55,9 @@ const DATA := {
 		"damage": 12.0,
 		"fire_rate": 0.7,
 		"range": 150.0,
+		"role": "Splash and stun. Later towers hit whole groups and can raise walls.",
+		"pros": [],
+		"cons": [],
 	},
 	Element.AIR: {
 		"name": "Air",
@@ -49,6 +66,9 @@ const DATA := {
 		"damage": 7.0,
 		"fire_rate": 1.5,
 		"range": 200.0,
+		"role": "Anti-air and utility. Later towers push, lift, and call down lightning.",
+		"pros": [],
+		"cons": [],
 	},
 }
 
@@ -69,3 +89,16 @@ func element_name(element: Element) -> String:
 
 func color_of(element: Element) -> Color:
 	return DATA[element]["color"]
+
+
+## Minimum luminance for element-coloured text on the dark UI panels.
+const TEXT_MIN_LUMINANCE := 0.42
+
+
+## The element's colour, lifted until it reads as text. DATA colours are chosen
+## for towers standing on a green map, which leaves Earth too dark for a label.
+func text_color_of(element: Element) -> Color:
+	var color: Color = DATA[element]["color"]
+	while color.get_luminance() < TEXT_MIN_LUMINANCE:
+		color = color.lightened(0.1)
+	return color
