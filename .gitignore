@@ -1,0 +1,12 @@
+# Godot 4+ engine cache and imported resources
+.godot/
+/android/
+
+# Exports
+/export/
+/builds/
+export_presets.cfg
+
+#Claude
+.claude/
+CLAUDE.md
