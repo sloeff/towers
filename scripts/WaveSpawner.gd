@@ -70,9 +70,33 @@ func _start_next_wave() -> void:
 	time_until_next_wave = wave_interval_seconds
 
 
+## Spawn order is the order of this array, one every `spawn_gap_seconds`.
+## Leaders march at the FRONT of their wave: the boss first, then the captain,
+## then the rank and file. The player sees what they're up against as the wave
+## arrives rather than after clearing it.
 func _wave_composition(wave: int) -> Array[Dictionary]:
 	var specs: Array[Dictionary] = []
 	var basic_health := 30.0 * pow(1.12, wave - 1)
+
+	if wave % 10 == 0:
+		specs.append({
+			"element": ElementTypes.ALL[(wave + 1) % ElementTypes.ALL.size()],
+			"health": basic_health * 7.0,
+			"speed": 45.0,
+			"gold": GOLD_BOSS,
+			"lives": 5,
+			"rank": Enemy.Rank.BOSS,
+		})
+
+	if wave % 5 == 0:
+		specs.append({
+			"element": ElementTypes.ALL[wave % ElementTypes.ALL.size()],
+			"health": basic_health * 3.0,
+			"speed": 60.0,
+			"gold": GOLD_CAPTAIN,
+			"lives": 3,
+			"rank": Enemy.Rank.CAPTAIN,
+		})
 
 	for i in 6 + wave * 2:
 		specs.append({
@@ -94,26 +118,6 @@ func _wave_composition(wave: int) -> Array[Dictionary]:
 			"lives": 1,
 			"rank": Enemy.Rank.BASIC,
 			"all_resist": true,
-		})
-
-	if wave % 5 == 0:
-		specs.append({
-			"element": ElementTypes.ALL[wave % ElementTypes.ALL.size()],
-			"health": basic_health * 3.0,
-			"speed": 60.0,
-			"gold": GOLD_CAPTAIN,
-			"lives": 3,
-			"rank": Enemy.Rank.CAPTAIN,
-		})
-
-	if wave % 10 == 0:
-		specs.append({
-			"element": ElementTypes.ALL[(wave + 1) % ElementTypes.ALL.size()],
-			"health": basic_health * 7.0,
-			"speed": 45.0,
-			"gold": GOLD_BOSS,
-			"lives": 5,
-			"rank": Enemy.Rank.BOSS,
 		})
 
 	return specs

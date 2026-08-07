@@ -13,10 +13,17 @@ const FLOATING_TEXT_SCENE := preload("res://scenes/FloatingText.tscn")
 
 enum Rank { BASIC, CAPTAIN, BOSS }
 
+## Body radius per rank. A captain or boss has to be obvious at a glance, so
+## the radius roughly tracks the square root of the rank's HP multiplier (3x
+## and 7x - see DESIGN_DOC's Balance section): the drawn *area* then scales
+## with how much punishment the unit absorbs. A boss ends up 44 px across on a
+## 64 px tile, which is as big as it can get without covering its neighbours.
+## Everything else in _draw() - shadow, health bar - is derived from this, and
+## so is aim_position(), so these are the only numbers to change.
 const RADIUS := {
 	Rank.BASIC: 9.0,
-	Rank.CAPTAIN: 12.0,
-	Rank.BOSS: 16.0,
+	Rank.CAPTAIN: 15.0,
+	Rank.BOSS: 22.0,
 }
 
 var element: int = ElementTypes.Element.FIRE

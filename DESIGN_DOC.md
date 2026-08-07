@@ -483,19 +483,56 @@ Range is measured on the flat isometric ground plane, so a range
 
 ### Enemies
 
-| Type | HP | Speed | Lives cost |
-|---|---|---|---|
-| Basic (any element) | 30 | 60 | 1 |
-| Captain | 90 | 60 | 3 |
-| Boss | 200 | 45 | 5 |
-| All-resist | 50 | 60 | 1 |
+Enemy HP is **not** a fixed number per rank. There is one base value that
+grows every wave, and each rank is a multiple of it:
+
+```
+base HP = 30 × 1.12^(wave − 1)
+```
+
+That compounds to roughly 8.6× by wave 20. Every rank rides the same
+curve, so the whole roster gets tougher together.
+
+| Type | HP | Speed | Lives cost | Body | Appears on |
+|---|---|---|---|---|---|
+| Basic (any element) | 1 × base | 60 | 1 | 18 px | every wave |
+| All-resist | 1.7 × base | 60 | 1 | 18 px | waves divisible by 3, from wave 4 → 6, 9, 12, 15, 18 |
+| Captain | 3 × base | 60 | 3 | 30 px | every 5th wave → 5, 10, 15, 20 |
+| Boss | 7 × base | **45** | 5 | 44 px | every 10th wave → **10 and 20 only** |
+
+Body size is how a player tells the ranks apart at a glance, so it tracks
+roughly the square root of the HP multiplier — the drawn *area* then
+scales with how much punishment the unit absorbs. A boss is 44 px across
+on a 64 px tile, about as large as it can get without swallowing its
+neighbours. The shadow, health bar and projectile aim point are all
+derived from this one number.
+
+Because captains, bosses and all-resists don't spawn in wave 1, their
+multiplier applied to the wave-1 base (90 / 210 / 51) is a number that
+never actually occurs in play. What you meet is:
+
+| Rank | First appearance | Wave 20 |
+|---|---|---|
+| Basic | 30 (wave 1) | 258 |
+| All-resist | 90 (wave 6) | 350 (wave 18) |
+| Captain | 142 (wave 5) | 775 |
+| Boss | 582 (wave 10) | 1809 |
+
+All-resist takes 75% damage from every element, ignoring the normal
+matchup table. It counts as a basic-rank unit, so it is *not* larger —
+it's identified by its grey body instead of an element colour. Bosses are
+the only rank slower than 60.
+
+> **Watch in playtesting:** a wave-20 boss has 1809 HP against a fire
+> tower's ~9.6 damage per second, and bosses appear only twice in a whole
+> run. Whether that reads as a climax or a wall is an open question.
 
 ### Wave scaling
 
-- 6 enemies in wave 1, +2 per wave.
-- Basic enemy HP scales `30 × 1.12^(wave−1)` — roughly 8.6× by wave 20.
-- An all-resist enemy joins on waves divisible by 3, from wave 4.
-- A captain joins on every 5th wave; a boss on every 10th.
+- 8 enemies in wave 1 (`6 + 2 × wave`), growing to 48 by wave 20 —
+  including the rank spawns above.
+- HP per rank as above.
+- Kill rewards do **not** scale; see [Economy](#economy).
 - 20 waves clears the game.
 
 ---
@@ -584,5 +621,8 @@ Check here before inventing a rule.
 - **Wave interval.** 25 s is a placeholder; the original doc left it as
   "xx seconds".
 - **Per-difficulty map variants.** Deferred post-MVP, not designed.
+- **Boss pacing.** Bosses appear only twice in a run (waves 10 and 20),
+  and the wave-20 one has 1809 HP against a fire tower's ~9.6 DPS. Climax
+  or wall? See the note under [Enemies](#enemies).
 - **All the numbers.** Everything in [Balance](#12-balance) is a first
   draft and untuned.
