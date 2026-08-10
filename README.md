@@ -12,6 +12,10 @@ yet, so for now one run means one element.
 **[DESIGN_DOC.md](DESIGN_DOC.md) is the single source of truth** for
 design, balance numbers, map layout and implementation notes.
 
+## Dev journal
+
+- 2026-08-10 — Added tower detail pop-up that displays the active potion effects, experience bar, item slots, tower stats, and a sell button.
+
 ## Running it
 
 Open this folder as a project in Godot 4.7+ and press F5.

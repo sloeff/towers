@@ -7,6 +7,8 @@ signal element_selected(element: int)
 signal starting_element_chosen(element: int)
 signal next_wave_requested
 signal restart_requested
+signal tower_sell_requested(tower: Node2D)
+signal tower_detail_closed
 
 const MESSAGE_SECONDS := 1.5
 
@@ -22,6 +24,7 @@ const MESSAGE_SECONDS := 1.5
 @onready var result_detail: Label = $ResultPanel/Center/Box/DetailLabel
 @onready var restart_button: Button = $ResultPanel/Center/Box/RestartButton
 @onready var element_select: Panel = $ElementSelectPanel
+@onready var tower_detail: PanelContainer = $TowerDetailPanel
 
 var _spawner: Node = null
 var _message_timeout: float = 0.0
@@ -33,6 +36,8 @@ func _ready() -> void:
 	next_wave_button.pressed.connect(func() -> void: next_wave_requested.emit())
 	restart_button.pressed.connect(func() -> void: restart_requested.emit())
 	element_select.element_chosen.connect(_on_starting_element_chosen)
+	tower_detail.sell_pressed.connect(func(tower: Node2D) -> void: tower_sell_requested.emit(tower))
+	tower_detail.close_pressed.connect(func() -> void: tower_detail_closed.emit())
 
 	GameManager.gold_changed.connect(_on_gold_changed)
 	GameManager.lives_changed.connect(_on_lives_changed)
@@ -50,6 +55,14 @@ func set_spawner(spawner: Node) -> void:
 
 func show_element_select() -> void:
 	element_select.visible = true
+
+
+func show_tower_detail(tower: Node2D) -> void:
+	tower_detail.show_for(tower)
+
+
+func hide_tower_detail() -> void:
+	tower_detail.hide_panel()
 
 
 func _on_starting_element_chosen(element: int) -> void:
