@@ -20,6 +20,13 @@ const GOLD_ALL_RESIST := 10
 const GOLD_CAPTAIN := 20
 const GOLD_BOSS := 50
 
+## XP granted to the tower that lands the killing blow, by rank (DESIGN_DOC,
+## "Tower experience"). Independent of the gold values above.
+const XP_BASIC := 10
+const XP_ALL_RESIST := 15
+const XP_CAPTAIN := 30
+const XP_BOSS := 75
+
 @export var entities_path: NodePath = ^"../Entities"
 @export var wave_interval_seconds: float = 30.0
 @export var first_wave_delay: float = 10.0
@@ -87,6 +94,7 @@ func _wave_composition(wave: int) -> Array[Dictionary]:
 			"health": basic_health * 7.0,
 			"speed": 45.0,
 			"gold": GOLD_BOSS,
+			"xp": XP_BOSS,
 			"lives": 5,
 			"rank": Enemy.Rank.BOSS,
 		})
@@ -97,6 +105,7 @@ func _wave_composition(wave: int) -> Array[Dictionary]:
 			"health": basic_health * 3.0,
 			"speed": 60.0,
 			"gold": GOLD_CAPTAIN,
+			"xp": XP_CAPTAIN,
 			"lives": 3,
 			"rank": Enemy.Rank.CAPTAIN,
 		})
@@ -107,6 +116,7 @@ func _wave_composition(wave: int) -> Array[Dictionary]:
 			"health": basic_health,
 			"speed": 60.0,
 			"gold": GOLD_BASIC,
+			"xp": XP_BASIC,
 			"lives": 1,
 			"rank": Enemy.Rank.BASIC,
 			"flying": ElementTypes.ALL[i % ElementTypes.ALL.size()] == ElementTypes.Element.AIR,
@@ -118,6 +128,7 @@ func _wave_composition(wave: int) -> Array[Dictionary]:
 			"health": basic_health * 1.7,
 			"speed": 60.0,
 			"gold": GOLD_ALL_RESIST,
+			"xp": XP_ALL_RESIST,
 			"lives": 1,
 			"rank": Enemy.Rank.BASIC,
 			"all_resist": true,

@@ -6,12 +6,16 @@ extends Node2D
 var _target: Node2D = null
 var _damage: float = 0.0
 var _element: int = 0
+## The firing tower, credited with XP if this shot lands the killing blow. May
+## be freed before impact (tower sold mid-flight), so consumers must guard it.
+var _source: Node2D = null
 
 
-func setup(target: Node2D, damage: float, element: int) -> void:
+func setup(target: Node2D, damage: float, element: int, source: Node2D) -> void:
 	_target = target
 	_damage = damage
 	_element = element
+	_source = source
 	queue_redraw()
 
 
@@ -23,7 +27,11 @@ func _process(delta: float) -> void:
 	var aim: Vector2 = _target.aim_position()
 	var to_target: Vector2 = aim - global_position
 	if to_target.length() < 10.0:
-		_target.take_damage(_damage, _element)
+		# The firing tower may have been sold (freed) while this shot was in
+		# flight; never hand a dangling reference across take_damage()'s typed
+		# parameter - pass null so the killing blow simply grants no XP.
+		var source: Node2D = _source if is_instance_valid(_source) else null
+		_target.take_damage(_damage, _element, source)
 		queue_free()
 		return
 

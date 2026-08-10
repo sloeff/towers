@@ -37,27 +37,25 @@ here.
 **Working:** the isometric map and route, the ravine the route runs
 through, dynamic A* pathing, wave spawning with scaling composition, the
 start-of-run element pick, click-to-place towers with build validation,
-click-a-tower detail panel with selling, elemental damage multipliers,
-floating gold rewards on a kill, the gold/lives economy, game over /
-victory with restart, and the HTML5 export deployed to GitHub Pages.
+click-a-tower detail panel with selling, tower experience and automatic
+leveling, elemental damage multipliers, floating gold rewards on a kill,
+the gold/lives economy, game over / victory with restart, and the HTML5
+export deployed to GitHub Pages.
 
-**Not built yet:** tower experience and leveling,
-elemental tokens and combination towers, potions and items, the
-destructible-rock shortcut trigger, per-difficulty map variants, sound,
-and real art.
+**Not built yet:** elemental tokens and combination towers, potions and
+items, the destructible-rock shortcut trigger, per-difficulty map
+variants, sound, and real art.
 
 ### Next steps, in order
 
 1. **Playtest and tune.** Every number in [Balance](#12-balance) is a
-   first draft. Wave 1–20 pacing, tower costs and enemy HP scaling all
-   need real play.
-2. **Tower experience and leveling** — see [Experience](#experience).
-   This is also what lights up the detail panel's disabled *Upgrade*
-   button.
-3. **Elemental tokens and combination towers** — see
+   first draft. Wave 1–20 pacing, tower costs, enemy HP scaling and the
+   new XP curve all need real play.
+2. **Elemental tokens and combination towers** — see
    [section 8](#8-elemental-progression-and-combination-towers). Needs the
-   gold costs decided first.
-4. **Real art** — replace the `_draw()` placeholder shapes.
+   gold costs decided first. This is what lights up the detail panel's
+   disabled *Upgrade* button.
+3. **Real art** — replace the `_draw()` placeholder shapes.
 
 ---
 
@@ -186,6 +184,24 @@ linearly.
 Damage deliberately doesn't scale up exponentially — otherwise towers
 would stay exactly as strong as the units. The intent is for players to
 make towers stronger through potions or items instead.
+
+**As implemented.** Leveling is fully automatic — a tower gains XP each
+time it lands a killing blow, with no button to press. XP per kill by
+rank: basic 10, all-resist 15, captain 30, boss 75. Towers cap at
+**level 5**, needing `[100, 160, 260, 410]` XP to climb from level 1 to
+5 (roughly ×1.6 per level). Each level multiplies the tower's *base*
+damage by `1 + 0.18·(level−1)` and its *base* fire rate by
+`1 + 0.12·(level−1)` — linear gains that reach ~2.5× base DPS at level 5,
+well short of the enemies' ~8.6× HP ramp, so potions and items remain the
+real power source. Range and cost don't change with level. Numbers live
+in `Tower.gd` (curve and gains) and `WaveSpawner.gd` (XP per kill).
+
+> **Two different "levels".** This XP level is not the token-gated
+> "level 1 / level 2" of
+> [combination towers](#8-elemental-progression-and-combination-towers).
+> They're separate axes today; when the token system is built, reconcile
+> the naming. The detail panel's disabled *Upgrade* button belongs to the
+> token system, not to XP leveling.
 
 ### Potions
 
@@ -467,6 +483,25 @@ round number. See the unresolved note under [Gold](#gold).
 
 Range is measured on the flat isometric ground plane, so a range
 "circle" is round in world terms and drawn as an ellipse.
+
+### Tower experience
+
+Automatic leveling on killing blows (see [Experience](#experience)).
+
+| | Value |
+|---|---|
+| XP per basic kill | 10 |
+| XP per all-resist kill | 15 |
+| XP per captain kill | 30 |
+| XP per boss kill | 75 |
+| Level cap | 5 |
+| XP to next level (Lv 1→5) | 100, 160, 260, 410 |
+| Damage per level | +18% of base, linear |
+| Fire rate per level | +12% of base, linear |
+
+A level-5 tower sits at ~2.5× its base DPS — a real reward, but far below
+the ~8.6× enemy HP ramp by wave 20. Range and cost are unchanged by
+level, and sell value stays a fraction of build cost.
 
 ### Enemies
 
