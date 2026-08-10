@@ -21,7 +21,7 @@ const GOLD_CAPTAIN := 20
 const GOLD_BOSS := 50
 
 @export var entities_path: NodePath = ^"../Entities"
-@export var wave_interval_seconds: float = 25.0
+@export var wave_interval_seconds: float = 30.0
 @export var first_wave_delay: float = 10.0
 @export var spawn_gap_seconds: float = 0.6
 
@@ -66,6 +66,9 @@ func _start_next_wave() -> void:
 		if not is_inside_tree():
 			return
 
+	# The inter-wave countdown starts only now, once the last unit of the round
+	# has spawned into the level (DESIGN_DOC, "Interval between groups"). While
+	# _spawning is true above, _process freezes the countdown.
 	_spawning = false
 	time_until_next_wave = wave_interval_seconds
 
