@@ -3,7 +3,7 @@
 *Working title. Isometric elemental tower defense, browser (HTML5), built
 in Godot. This is the single source of truth for the project: design
 intent, balance numbers, map layout and implementation notes all live
-here. Add your own notes and ideas anywhere — it's yours to edit.*
+here.
 
 **Contents**
 
@@ -26,12 +26,8 @@ here. Add your own notes and ideas anywhere — it's yours to edit.*
 
 ## 1. Status and decisions
 
-- **Engine**: Godot 4.7 — the full engine, chosen over a JS library like
-  Phaser.
-- **Platform**: Browser via HTML5 export. Test the export early and
-  often, not just at the end: a web export is heavier than a native web
-  game (bigger download, slower cold start through WASM), so
-  browser-specific issues are worth catching while the project is small.
+- **Engine**: Godot 4.7
+- **Platform**: Browser via HTML5 export
 - **Scope**: MVP first — single player, one map, 4 basic elemental
   towers, no upgrades/combos/potions/items/multiplayer. Everything else
   layers on top later without a rewrite.
@@ -167,7 +163,7 @@ When a unit reaches the exit, the player loses one life. A captain costs
 
 ### Interval between groups
 
-A new enemy group starts automatically every 25 seconds. A player can
+A timer starts when the last unit of the round has spawned into the level, this timer is set to 30 seconds. A player can
 choose to start the next group earlier, increasing score and the
 end-of-round gold bonus. The early start works
 (`WaveSpawner.start_next_wave_early()`); the bonus for it does not exist
@@ -190,8 +186,6 @@ linearly.
 Damage deliberately doesn't scale up exponentially — otherwise towers
 would stay exactly as strong as the units. The intent is for players to
 make towers stronger through potions or items instead.
-
-Not implemented yet.
 
 ### Potions
 
@@ -219,15 +213,16 @@ means touching every stat read.
 ## 7. Towers
 
 Every element has one tower that deals 125% damage to its own element.
-This tower is very expensive to build.
 
 **Fire towers** (mainly damage towers)
 - Basic tower
+- Damage over time
 - Inferno — slow attack with AoE damage over time
 - Vulcano — very slow but high damage all around the tower
 
 **Earth towers** (splash damage towers with stun ability)
 - Basic tower
+- Stun ability
 - Earthquake — AoE damage and slow
 - Rock sling — splash and AoE stun, hurls big rocks at groups of enemies
 - Waller — creates walls, does not attack
@@ -241,6 +236,7 @@ This tower is very expensive to build.
 
 **Water towers** (mostly slow towers)
 - Basic tower
+- Slowing ability
 - Water spring (just a name)
 - Freeze tower — can freeze a single enemy
 - Ice Storm — can freeze multiple enemies
@@ -254,10 +250,6 @@ tower gets designed properly.
 ---
 
 ## 8. Elemental progression and combination towers
-
-*(v2 — replaces the earlier adjacency-based merge design, which needed
-two physically adjacent towers. Combining is now driven entirely by the
-token economy, which is simpler to build.)*
 
 At the start of the game the player picks **one element**, and can only
 build towers of that element until more are unlocked. *(This part is
@@ -363,13 +355,7 @@ plateau the towers stand on.
 
 ### Dynamic pathing, not a waypoint list
 
-*(v2 — replaces the earlier fixed-waypoint-list design.)*
-
-The original plan was a fixed list of waypoints per enemy. That breaks
-the moment a special unit can destroy a rock and open a shortcut mid
-level, since a fixed list can't represent "the route just changed."
-
-Enemies now path live across a grid of solid/open cells and re-request
+Enemies path live across a grid of solid/open cells and re-request
 their path whenever the grid changes. **Bonus:** this gives "units
 already past the shortcut keep their current route" for free — an enemy
 re-paths from wherever it *currently* is, so if the shortcut is behind it,
@@ -459,7 +445,7 @@ round number. See the unresolved note under [Gold](#gold).
 | All-resist kill | 10 gold |
 | Captain kill | 20 gold |
 | Boss kill | 50 gold |
-| Wave auto-start interval | 25 s |
+| Wave auto-start interval | 30 s |
 | Round-clear speed bonus | not implemented |
 | Early-start bonus | not implemented |
 
