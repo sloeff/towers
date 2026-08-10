@@ -22,6 +22,9 @@ const TOWER_ANCHOR := Vector2(0.0, -40.0)
 var _tower: Node2D = null
 
 var _title: Label
+var _level: Label
+var _xp_bar: ProgressBar
+var _xp_label: Label
 var _damage: Label
 var _range: Label
 var _fire_rate: Label
@@ -70,9 +73,13 @@ func _build_ui() -> void:
 	close_button.pressed.connect(func() -> void: close_pressed.emit())
 	header.add_child(close_button)
 
+	_build_xp_row(box)
+
 	_damage = _add_stat(box)
 	_range = _add_stat(box)
 	_fire_rate = _add_stat(box)
+
+	_build_item_slots(box)
 
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 8)
@@ -93,6 +100,72 @@ func _build_ui() -> void:
 	buttons.add_child(_sell_button)
 
 
+## Level readout + progress toward the next level, just below the name. Empty
+## until the leveling system fills it in (see Tower's XP placeholder).
+func _build_xp_row(box: VBoxContainer) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	box.add_child(row)
+
+	_level = Label.new()
+	_level.add_theme_font_size_override("font_size", 14)
+	row.add_child(_level)
+
+	_xp_bar = ProgressBar.new()
+	_xp_bar.show_percentage = false
+	# Tall enough to hold the XP text drawn inside it.
+	_xp_bar.custom_minimum_size = Vector2(0.0, 18.0)
+	_xp_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_xp_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+
+	# Outline the bar so the empty track reads as a bar, not a gap.
+	var bar_bg := StyleBoxFlat.new()
+	bar_bg.bg_color = Color(0.05, 0.06, 0.08, 0.9)
+	bar_bg.set_border_width_all(1)
+	bar_bg.border_color = Color(1.0, 1.0, 1.0, 0.5)
+	bar_bg.set_corner_radius_all(2)
+	_xp_bar.add_theme_stylebox_override("background", bar_bg)
+
+	var bar_fill := StyleBoxFlat.new()
+	bar_fill.bg_color = Color(0.42, 0.78, 1.0, 0.95)
+	bar_fill.set_corner_radius_all(2)
+	_xp_bar.add_theme_stylebox_override("fill", bar_fill)
+
+	row.add_child(_xp_bar)
+
+	# Draw the "N / M XP" text centred inside the bar rather than below it.
+	_xp_label = Label.new()
+	_xp_label.add_theme_font_size_override("font_size", 11)
+	_xp_label.add_theme_color_override("font_color", Color(0.92, 0.94, 0.98))
+	_xp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_xp_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_xp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_xp_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_xp_bar.add_child(_xp_label)
+
+
+## Three greyed-out placeholder item slots. Wiring them up is future work (the
+## equippable items in DESIGN_DOC's "Items"); for now they just mark the space.
+func _build_item_slots(box: VBoxContainer) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	box.add_child(row)
+
+	var slot_style := StyleBoxFlat.new()
+	slot_style.bg_color = Color(0.16, 0.17, 0.2, 0.9)
+	slot_style.set_border_width_all(1)
+	slot_style.border_color = Color(1.0, 1.0, 1.0, 0.18)
+	slot_style.set_corner_radius_all(3)
+
+	for i in 3:
+		var slot := Panel.new()
+		slot.custom_minimum_size = Vector2(30.0, 30.0)
+		slot.tooltip_text = "Item slot (coming soon)"
+		slot.add_theme_stylebox_override("panel", slot_style)
+		slot.modulate = Color(1.0, 1.0, 1.0, 0.5)
+		row.add_child(slot)
+
+
 func _add_stat(box: VBoxContainer) -> Label:
 	var label := Label.new()
 	label.add_theme_font_size_override("font_size", 16)
@@ -106,6 +179,11 @@ func show_for(tower: Node2D) -> void:
 	_tower = tower
 	_title.text = "%s Tower" % ElementTypes.element_name(tower.element)
 	_title.add_theme_color_override("font_color", ElementTypes.text_color_of(tower.element))
+	var xp_needed: int = tower.experience_to_next_level()
+	_level.text = "Lv %d" % tower.level
+	_xp_bar.max_value = xp_needed
+	_xp_bar.value = tower.experience
+	_xp_label.text = "%d / %d XP" % [tower.experience, xp_needed]
 	_damage.text = "Damage: %s" % tower.damage
 	_range.text = "Range: %s" % tower.range_radius
 	_fire_rate.text = "Fire rate: %s/s" % tower.fire_rate

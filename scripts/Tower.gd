@@ -16,6 +16,16 @@ const PROJECTILE_SCENE := preload("res://scenes/Projectile.tscn")
 ## free.
 const SELL_REFUND_RATE := 0.75
 
+## Tower leveling (DESIGN_DOC, "Experience"). The system that grants XP on a
+## killing blow and levels the tower up isn't built yet, so these stay at their
+## starting values - the detail panel reads them to render an (empty) XP bar.
+## XP_TO_NEXT_LEVEL is a flat placeholder until the exponential curve is
+## designed; experience_to_next_level() becomes that formula later.
+const XP_TO_NEXT_LEVEL := 100
+
+var level: int = 1
+var experience: int = 0
+
 var cell: Vector2i
 var show_range: bool = false:
 	set(value):
@@ -36,6 +46,12 @@ func ground_position() -> Vector2:
 ## Gold returned to the player when this tower is sold.
 func sell_value() -> int:
 	return int(floor(cost * SELL_REFUND_RATE))
+
+
+## Experience required to reach the next level. Flat placeholder until the
+## exponential curve in DESIGN_DOC's "Experience" section is decided.
+func experience_to_next_level() -> int:
+	return XP_TO_NEXT_LEVEL
 
 
 func configure(tower_element: int) -> void:

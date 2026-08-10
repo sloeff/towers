@@ -559,10 +559,13 @@ ravine.
 
 Clicking a placed tower selects it and opens `TowerDetailPanel`, a
 floating popover that re-anchors to the tower each frame (screen-space,
-via the world canvas transform, so it tracks pan and zoom). It shows the
-tower's damage, range and fire rate, a **Sell** button (refunds 75% of
-build cost, floored — frees the cell for a rebuild), and a disabled
-**Upgrade** button awaiting the leveling / token economy. `Main` owns the
+via the world canvas transform, so it tracks pan and zoom). Below the
+name it shows a level readout and an XP-to-next-level bar — a placeholder
+pinned at Lv 1 / 0 XP, reading `Tower.experience` against a flat
+`XP_TO_NEXT_LEVEL` until the [Experience](#experience) curve is built.
+Below that: the tower's damage, range and fire rate, a **Sell** button
+(refunds 75% of build cost, floored — frees the cell for a rebuild), and
+a disabled **Upgrade** button awaiting the leveling / token economy. `Main` owns the
 selection state and performs the sell; the panel only reads stats and
 emits intent. The vertical layout leaves room for the planned
 active-buffs section and item slots (the modifier system under
