@@ -73,6 +73,8 @@ func _build_ui() -> void:
 	close_button.pressed.connect(func() -> void: close_pressed.emit())
 	header.add_child(close_button)
 
+	_build_potion_effects(box)
+
 	_build_xp_row(box)
 
 	_damage = _add_stat(box)
@@ -98,6 +100,46 @@ func _build_ui() -> void:
 	_sell_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_sell_button.pressed.connect(_on_sell_pressed)
 	buttons.add_child(_sell_button)
+
+
+## Active potion effects applied to the tower, shown as coloured badges just
+## below the name. These are dummy placeholders - the potion/modifier system in
+## DESIGN_DOC's "Potions" isn't built yet, so a fixed sample is drawn for layout.
+func _build_potion_effects(box: VBoxContainer) -> void:
+	var effects := [
+		{"label": "GF", "color": Color(0.85, 0.68, 0.18), "name": "Gold Find"},
+		{"label": "DMG", "color": Color(0.82, 0.29, 0.22), "name": "Damage Up"},
+		{"label": "SLW", "color": Color(0.27, 0.53, 0.83), "name": "Slow"},
+	]
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	box.add_child(row)
+
+	for effect in effects:
+		var color: Color = effect["color"]
+		var badge := Panel.new()
+		badge.custom_minimum_size = Vector2(34.0, 34.0)
+		badge.tooltip_text = "%s (placeholder)" % effect["name"]
+
+		var style := StyleBoxFlat.new()
+		style.bg_color = color.darkened(0.15)
+		style.set_border_width_all(1)
+		style.border_color = color.lightened(0.3)
+		style.set_corner_radius_all(3)
+		badge.add_theme_stylebox_override("panel", style)
+
+		var text := Label.new()
+		text.text = effect["label"]
+		text.add_theme_font_size_override("font_size", 11)
+		text.add_theme_color_override("font_color", Color(0.98, 0.98, 0.98))
+		text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		text.set_anchors_preset(Control.PRESET_FULL_RECT)
+		badge.add_child(text)
+
+		row.add_child(badge)
 
 
 ## Level readout + progress toward the next level, just below the name. Empty
