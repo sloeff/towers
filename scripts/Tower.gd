@@ -11,6 +11,11 @@ const PROJECTILE_SCENE := preload("res://scenes/Projectile.tscn")
 @export var range_radius: float = 170.0
 @export var cost: int = 50
 
+## Selling refunds this fraction of the build cost, floored (DESIGN_DOC,
+## "Economy"). Enough to undo a misplacement without making sell-and-rebuild
+## free.
+const SELL_REFUND_RATE := 0.75
+
 var cell: Vector2i
 var show_range: bool = false:
 	set(value):
@@ -26,6 +31,11 @@ var _fire_cooldown: float = 0.0
 ## here rather than from global_position.
 func ground_position() -> Vector2:
 	return global_position - Vector2(0.0, GridManager.RAISED_SORT_BIAS)
+
+
+## Gold returned to the player when this tower is sold.
+func sell_value() -> int:
+	return int(floor(cost * SELL_REFUND_RATE))
 
 
 func configure(tower_element: int) -> void:

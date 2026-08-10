@@ -20,6 +20,10 @@ var selected_element: int = -1
 var _towers_by_cell := {}
 var _panning := false
 
+## The tower whose detail panel is open, or null. It keeps its range ring shown
+## while selected, independent of hover.
+var _selected_tower: Node2D = null
+
 
 func _ready() -> void:
 	GameManager.new_game()
@@ -29,6 +33,8 @@ func _ready() -> void:
 	hud.starting_element_chosen.connect(_on_starting_element_chosen)
 	hud.next_wave_requested.connect(spawner.start_next_wave_early)
 	hud.restart_requested.connect(_restart)
+	hud.tower_sell_requested.connect(_on_tower_sell_requested)
+	hud.tower_detail_closed.connect(_deselect_tower)
 	hud.set_spawner(spawner)
 	_center_camera()
 	_begin_element_select()
@@ -62,6 +68,9 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		_deselect_tower()
+		return
 	if event is InputEventMouseMotion:
 		if _panning:
 			camera.position -= event.relative / camera.zoom.x
@@ -78,7 +87,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					_zoom_by(1.0 / 1.1)
 			MOUSE_BUTTON_LEFT:
 				if event.pressed:
-					_try_place_tower()
+					_on_left_click()
 
 
 func _zoom_by(factor: float) -> void:
@@ -91,22 +100,63 @@ func _update_hover() -> void:
 	map.hover_cell = cell
 	map.hover_valid = selected_element != -1 and GridManager.can_build(cell) \
 		and GameManager.gold >= _selected_cost()
-	var tower: Node2D = _towers_by_cell.get(cell)
+	var hovered: Node2D = _towers_by_cell.get(cell)
 	for placed in _towers_by_cell.values():
-		placed.show_range = placed == tower
+		placed.show_range = placed == hovered or placed == _selected_tower
 
 
 func _selected_cost() -> int:
 	return ElementTypes.DATA[selected_element]["cost"]
 
 
-func _try_place_tower() -> void:
+## Left-click either selects a tower (opening its detail panel) or, on empty
+## ground, deselects and attempts a build. Clicks on the panel itself never
+## reach here - the panel Control consumes them first.
+func _on_left_click() -> void:
+	if GameManager.is_over:
+		return
+	var cell := GridManager.world_to_cell(get_global_mouse_position())
+	var tower: Node2D = _towers_by_cell.get(cell)
+	if tower != null:
+		_select_tower(tower)
+		return
+	_deselect_tower()
+	_try_place_tower(cell)
+
+
+func _select_tower(tower: Node2D) -> void:
+	_selected_tower = tower
+	hud.show_tower_detail(tower)
+	_update_hover()
+
+
+func _deselect_tower() -> void:
+	if _selected_tower == null:
+		return
+	_selected_tower = null
+	hud.hide_tower_detail()
+	_update_hover()
+
+
+func _on_tower_sell_requested(tower: Node2D) -> void:
+	if GameManager.is_over:
+		return
+	GameManager.add_gold(tower.sell_value())
+	GridManager.set_occupied(tower.cell, false)
+	_towers_by_cell.erase(tower.cell)
+	if _selected_tower == tower:
+		_selected_tower = null
+	hud.hide_tower_detail()
+	tower.queue_free()
+	_update_hover()
+
+
+func _try_place_tower(cell: Vector2i) -> void:
 	if GameManager.is_over:
 		return
 	if not GameManager.is_element_unlocked(selected_element):
 		hud.flash_message("Pick an element first")
 		return
-	var cell := GridManager.world_to_cell(get_global_mouse_position())
 	if not GridManager.can_build(cell):
 		hud.flash_message("Can't build there")
 		return
@@ -132,12 +182,14 @@ func _on_element_selected(element: int) -> void:
 
 
 func _on_game_over() -> void:
+	_deselect_tower()
 	get_tree().paused = true
 	var waves := GameManager.wave_number
 	hud.show_result("Game Over", "You survived %d wave%s." % [waves, "" if waves == 1 else "s"])
 
 
 func _on_victory() -> void:
+	_deselect_tower()
 	get_tree().paused = true
 	hud.show_result("Victory!", "You cleared all %d waves." % GameManager.MAX_WAVES)
 

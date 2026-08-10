@@ -37,11 +37,11 @@ here.
 **Working:** the isometric map and route, the ravine the route runs
 through, dynamic A* pathing, wave spawning with scaling composition, the
 start-of-run element pick, click-to-place towers with build validation,
-elemental damage multipliers, floating gold rewards on a kill, the
-gold/lives economy, game over / victory with restart, and the HTML5
-export deployed to GitHub Pages.
+click-a-tower detail panel with selling, elemental damage multipliers,
+floating gold rewards on a kill, the gold/lives economy, game over /
+victory with restart, and the HTML5 export deployed to GitHub Pages.
 
-**Not built yet:** tower selling, tower experience and leveling,
+**Not built yet:** tower experience and leveling,
 elemental tokens and combination towers, potions and items, the
 destructible-rock shortcut trigger, per-difficulty map variants, sound,
 and real art.
@@ -51,13 +51,13 @@ and real art.
 1. **Playtest and tune.** Every number in [Balance](#12-balance) is a
    first draft. Wave 1–20 pacing, tower costs and enemy HP scaling all
    need real play.
-2. **Tower selling / refunds.** A misplaced tower is currently a
-   permanent loss of gold, which makes playtesting frustrating.
-3. **Tower experience and leveling** — see [Experience](#experience).
-4. **Elemental tokens and combination towers** — see
+2. **Tower experience and leveling** — see [Experience](#experience).
+   This is also what lights up the detail panel's disabled *Upgrade*
+   button.
+3. **Elemental tokens and combination towers** — see
    [section 8](#8-elemental-progression-and-combination-towers). Needs the
    gold costs decided first.
-5. **Real art** — replace the `_draw()` placeholder shapes.
+4. **Real art** — replace the `_draw()` placeholder shapes.
 
 ---
 
@@ -445,6 +445,7 @@ round number. See the unresolved note under [Gold](#gold).
 | All-resist kill | 10 gold |
 | Captain kill | 20 gold |
 | Boss kill | 50 gold |
+| Tower sell refund | 75% of build cost, floored |
 | Wave auto-start interval | 30 s |
 | Round-clear speed bonus | not implemented |
 | Early-start bonus | not implemented |
@@ -544,6 +545,7 @@ HUD.tscn
   BuildBar                element buttons (unlocked only) + next-wave button
   ResultPanel             hidden until game over / victory
   ElementSelectPanel      the start-of-run element pick
+  TowerDetailPanel        floating popover for the selected tower
 
 Enemy.tscn / Tower.tscn / Projectile.tscn / FloatingText.tscn
   bare Node2D + script each
@@ -552,6 +554,19 @@ Enemy.tscn / Tower.tscn / Projectile.tscn / FloatingText.tscn
 `Main`, `Map` and `Entities` share one depth sort, so terrain in front of
 a unit correctly occludes it — that's what makes the ravine read as a
 ravine.
+
+### Tower detail panel
+
+Clicking a placed tower selects it and opens `TowerDetailPanel`, a
+floating popover that re-anchors to the tower each frame (screen-space,
+via the world canvas transform, so it tracks pan and zoom). It shows the
+tower's damage, range and fire rate, a **Sell** button (refunds 75% of
+build cost, floored — frees the cell for a rebuild), and a disabled
+**Upgrade** button awaiting the leveling / token economy. `Main` owns the
+selection state and performs the sell; the panel only reads stats and
+emits intent. The vertical layout leaves room for the planned
+active-buffs section and item slots (the modifier system under
+[Items](#items)) without a rebuild.
 
 ### Adding an element
 
