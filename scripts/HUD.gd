@@ -9,6 +9,8 @@ signal next_wave_requested
 signal restart_requested
 signal tower_sell_requested(tower: Node2D)
 signal tower_detail_closed
+signal build_confirmed
+signal build_cancelled
 
 const MESSAGE_SECONDS := 1.5
 
@@ -25,6 +27,7 @@ const MESSAGE_SECONDS := 1.5
 @onready var restart_button: Button = $ResultPanel/Center/Box/RestartButton
 @onready var element_select: Panel = $ElementSelectPanel
 @onready var tower_detail: PanelContainer = $TowerDetailPanel
+@onready var build_prompt: PanelContainer = $BuildPrompt
 
 var _spawner: Node = null
 var _message_timeout: float = 0.0
@@ -38,6 +41,8 @@ func _ready() -> void:
 	element_select.element_chosen.connect(_on_starting_element_chosen)
 	tower_detail.sell_pressed.connect(func(tower: Node2D) -> void: tower_sell_requested.emit(tower))
 	tower_detail.close_pressed.connect(func() -> void: tower_detail_closed.emit())
+	build_prompt.confirmed.connect(func() -> void: build_confirmed.emit())
+	build_prompt.cancelled.connect(func() -> void: build_cancelled.emit())
 
 	GameManager.gold_changed.connect(_on_gold_changed)
 	GameManager.lives_changed.connect(_on_lives_changed)
@@ -63,6 +68,14 @@ func show_tower_detail(tower: Node2D) -> void:
 
 func hide_tower_detail() -> void:
 	tower_detail.hide_panel()
+
+
+func show_build_prompt(world_pos: Vector2, cost: int) -> void:
+	build_prompt.show_at(world_pos, cost)
+
+
+func hide_build_prompt() -> void:
+	build_prompt.hide_prompt()
 
 
 func _on_starting_element_chosen(element: int) -> void:

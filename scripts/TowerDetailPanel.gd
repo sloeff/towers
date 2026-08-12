@@ -69,7 +69,7 @@ func _build_ui() -> void:
 
 	var close_button := Button.new()
 	close_button.text = "x"
-	close_button.custom_minimum_size = Vector2(28.0, 28.0)
+	close_button.custom_minimum_size = Vector2(40.0, 40.0)  # finger-sized tap target
 	close_button.focus_mode = Control.FOCUS_NONE
 	close_button.pressed.connect(func() -> void: close_pressed.emit())
 	header.add_child(close_button)

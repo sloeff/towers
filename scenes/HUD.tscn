@@ -1,8 +1,9 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/HUD.gd" id="1_hud"]
 [ext_resource type="Script" path="res://scripts/ElementSelect.gd" id="2_element_select"]
 [ext_resource type="Script" path="res://scripts/TowerDetailPanel.gd" id="3_tower_detail"]
+[ext_resource type="Script" path="res://scripts/BuildPrompt.gd" id="4_build_prompt"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_topbar"]
 bg_color = Color(0.07, 0.08, 0.11, 0.85)
@@ -164,3 +165,7 @@ alignment = 1
 [node name="TowerDetailPanel" type="PanelContainer" parent="."]
 visible = false
 script = ExtResource("3_tower_detail")
+
+[node name="BuildPrompt" type="PanelContainer" parent="."]
+visible = false
+script = ExtResource("4_build_prompt")
