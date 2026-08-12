@@ -623,6 +623,27 @@ target reference. That avoids collision-layer setup entirely and is
 plenty fast at this scale. This was a deliberate change away from an
 earlier collision-based approach — don't reintroduce it without a reason.
 
+### Input and controls
+
+Desktop and touch run through one code path in `Main`, branching only on
+event type. Placement is a **two-step confirm**: a click or tap on a
+buildable tile starts a *pending build* — a translucent ghost tower with
+its range ring, plus a floating **Build** prompt (`BuildPrompt`, which
+follows the tile like the tower detail panel does). Confirming places the
+tower; tapping the tile again also confirms; tapping elsewhere, ✕, or
+Escape cancels. This gives touch the "hover preview" it otherwise lacks,
+and desktop uses the same flow for consistency.
+
+Touch gestures: one-finger drag pans, two-finger pinch zooms (toward the
+pinch midpoint), and a tap — a touch that barely moves — acts. A small
+travel threshold separates a tap from a pan. Mouse-wheel and pinch zoom
+both zoom toward the pointer. `emulate_mouse_from_touch` is **off** so a
+finger doesn't also fire a phantom mouse click (which would double-run
+the tap and skip the confirm); the HUD's Controls handle touch natively.
+
+Tap targets (the Build/cancel buttons, the detail panel's ✕) are sized
+for fingers (≥ ~40px). Broader mobile UI polish is left for later.
+
 ### Display and scaling
 
 Base resolution is 1280×720 with stretch `mode = canvas_items` and
