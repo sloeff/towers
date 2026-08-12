@@ -623,6 +623,19 @@ target reference. That avoids collision-layer setup entirely and is
 plenty fast at this scale. This was a deliberate change away from an
 earlier collision-based approach — don't reintroduce it without a reason.
 
+### Display and scaling
+
+Base resolution is 1280×720 with stretch `mode = canvas_items` and
+`aspect = expand`, so the game fills any screen edge-to-edge with no
+letterboxing — wider or taller devices simply see more of the map, and
+the HUD (anchored to the screen edges) reflows to fit. The `_draw`
+placeholder art is vector, so it rescales crisply at any size. The web
+export uses `canvas_resize_policy = 2` (adaptive), so the canvas tracks
+the browser window. This makes the game *fit* laptops, phones and
+tablets; making a phone/tablet fully *playable* also needs touch input
+(pan, pinch-zoom, tap-to-build), which is a separate piece of work. The
+native desktop window is only a debugging surface and is left unscaled.
+
 ### Art
 
 All visuals are placeholder shapes drawn in code, so the game runs with

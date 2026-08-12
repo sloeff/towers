@@ -14,6 +14,7 @@ design, balance numbers, map layout and implementation notes.
 
 ## Dev journal
 
+- 2026-08-12 — Made the game fill any screen edge-to-edge (stretch aspect "expand") so it fits laptops, phones and tablets without letterboxing; full phone/tablet playability still needs touch controls.
 - 2026-08-12 — Added automatic tower experience: towers gain XP on killing blows and level up to 5, boosting damage and fire rate, with a live XP bar, a "Level up!" pop-up, and towers growing taller and brighter each level.
 - 2026-08-10 — Added tower detail pop-up that displays the active potion effects, experience bar, item slots, tower stats, and a sell button.
 
