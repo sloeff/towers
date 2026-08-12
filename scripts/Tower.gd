@@ -85,6 +85,7 @@ func gain_experience(amount: int) -> void:
 	if leveled:
 		_recompute_stats()
 		_show_level_up()
+		queue_redraw()  # the tower grows taller per level - see _draw()
 
 
 ## Effective damage and fire rate for the current level, off the base stats.
@@ -97,7 +98,7 @@ func _show_level_up() -> void:
 	var popup := FLOATING_TEXT_SCENE.instantiate()
 	get_parent().add_child(popup)
 	popup.global_position = ground_position() + Vector2(0.0, -48.0)
-	popup.setup("Level up!", Color(0.5, 0.9, 1.0), 0.8)
+	popup.setup("Level up!", Color(0.5, 0.9, 1.0), 1.5)
 
 
 func configure(tower_element: int) -> void:
@@ -146,7 +147,9 @@ func _fire_at(target: Node2D) -> void:
 
 
 func _draw() -> void:
-	var color: Color = ElementTypes.color_of(element)
+	# Brighten with each level so a leveled tower reads as stronger at a glance,
+	# on top of the extra height below. Level 1 is unchanged.
+	var color: Color = ElementTypes.color_of(element).lightened((level - 1) * 0.08)
 	# Draw back up by the sort bias baked into this node's position.
 	var origin := Vector2(0.0, -GridManager.RAISED_SORT_BIAS)
 
@@ -162,6 +165,10 @@ func _draw() -> void:
 	draw_colored_polygon(base, color.darkened(0.55))
 	draw_polyline(base + PackedVector2Array([base[0]]), color.darkened(0.7), 1.5)
 
-	draw_rect(Rect2(origin.x - 11.0, origin.y - 34.0, 22.0, 34.0), color.darkened(0.25))
-	draw_rect(Rect2(origin.x - 11.0, origin.y - 34.0, 22.0, 34.0), color.darkened(0.7), false, 1.5)
-	draw_circle(origin + Vector2(0.0, -40.0), 8.0, color)
+	# The turret grows taller with each level so a leveled-up tower stands out at
+	# a glance; the base stays planted on the tile and it extends upward.
+	var turret_height := 34.0 + (level - 1) * 4.0
+	var turret_top := origin.y - turret_height
+	draw_rect(Rect2(origin.x - 11.0, turret_top, 22.0, turret_height), color.darkened(0.25))
+	draw_rect(Rect2(origin.x - 11.0, turret_top, 22.0, turret_height), color.darkened(0.7), false, 1.5)
+	draw_circle(Vector2(origin.x, turret_top - 6.0), 8.0, color)

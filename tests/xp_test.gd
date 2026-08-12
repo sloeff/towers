@@ -19,6 +19,32 @@ func _approx(a: float, b: float) -> bool:
 	return absf(a - b) < 0.001
 
 
+## Latest child FloatingText whose text matches, or null.
+func _find_floating_text(want: String) -> Node:
+	var found: Node = null
+	for c in get_children():
+		if c.get("text") == want:
+			found = c
+	return found
+
+
+## Fire one lethal projectile from `shooter` at a fresh enemy and let it land.
+func _kill_one(shooter: Node2D) -> void:
+	var e = load("res://scenes/Enemy.tscn").instantiate()
+	add_child(e)
+	e.configure({
+		"element": ElementTypes.Element.WATER,
+		"health": 5.0, "speed": 60.0, "gold": 5, "xp": 10, "lives": 1,
+		"rank": Enemy.Rank.BASIC,
+	})
+	var p = load("res://scenes/Projectile.tscn").instantiate()
+	add_child(p)
+	p.global_position = e.aim_position()
+	p.setup(e, 9999.0, ElementTypes.Element.FIRE, shooter)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+
 func _new_tower() -> Node2D:
 	var tower: Node2D = load("res://scenes/Tower.tscn").instantiate()
 	add_child(tower)
@@ -40,6 +66,13 @@ func _ready() -> void:
 	_check("xp reset to 0", t.experience == 0)
 	_check("dmg 9.44 at L2", _approx(t.damage, 9.44))
 	_check("rate 1.344 at L2", _approx(t.fire_rate, 1.344))
+
+	# Level-up spawns a visible "Level up!" popup (rides above the map on z=100).
+	var popup := _find_floating_text("Level up!")
+	_check("level-up spawns a popup", popup != null)
+	if popup != null:
+		_check("popup rides above map (z=100)", popup.z_index == 100)
+		_check("popup has a visible lifetime", popup.lifetime >= 0.5)
 
 	# Overflow rolls through multiple levels (100 -> L2, 160 -> L3).
 	var t2 := _new_tower()
@@ -79,6 +112,14 @@ func _ready() -> void:
 	})
 	enemy.take_damage(9999.0, ElementTypes.Element.FIRE, killer)
 	_check("killer gained enemy xp", killer.experience == 10)
+
+	# Full in-game path: a LIVE tower's projectiles kill enemies until it levels,
+	# proving XP flows tower -> projectile -> enemy death -> level-up popup.
+	var shooter := _new_tower()
+	for i in 10:  # 10 basic kills x 10 xp = 100 = level 2
+		await _kill_one(shooter)
+	_check("live tower reached level 2 via projectile kills", shooter.level == 2)
+	_check("projectile-driven level-up spawned a popup", _find_floating_text("Level up!") != null)
 
 	# A killing blow from a sold (freed) tower must not error: drive it through a
 	# real projectile whose source is freed mid-flight, exactly as a sell does.
