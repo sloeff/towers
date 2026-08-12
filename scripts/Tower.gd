@@ -4,6 +4,7 @@ extends Node2D
 ## the circle matches the isometric ground plane.
 
 const PROJECTILE_SCENE := preload("res://scenes/Projectile.tscn")
+const FLOATING_TEXT_SCENE := preload("res://scenes/FloatingText.tscn")
 
 @export var element: int = ElementTypes.Element.FIRE
 @export var damage: float = 8.0
@@ -16,15 +17,27 @@ const PROJECTILE_SCENE := preload("res://scenes/Projectile.tscn")
 ## free.
 const SELL_REFUND_RATE := 0.75
 
-## Tower leveling (DESIGN_DOC, "Experience"). The system that grants XP on a
-## killing blow and levels the tower up isn't built yet, so these stay at their
-## starting values - the detail panel reads them to render an (empty) XP bar.
-## XP_TO_NEXT_LEVEL is a flat placeholder until the exponential curve is
-## designed; experience_to_next_level() becomes that formula later.
-const XP_TO_NEXT_LEVEL := 100
+## Tower leveling (DESIGN_DOC, "Experience"). A tower gains XP whenever it lands
+## a killing blow and levels up automatically - there is no button. Each level
+## multiplies the BASE damage and fire rate linearly (range and cost are
+## unaffected), capped at MAX_LEVEL. Not to be confused with the token-gated
+## "level 2" of combination towers - a separate axis (DESIGN_DOC section 8).
+const MAX_LEVEL := 5
+## XP to climb from level 1->2, 2->3, ... (index = current level - 1).
+const XP_TO_LEVEL := [100, 160, 260, 410]
+## Per-level stat gains, as a fraction of the base stat, added linearly.
+const DAMAGE_GAIN_PER_LEVEL := 0.18
+const FIRE_RATE_GAIN_PER_LEVEL := 0.12
 
 var level: int = 1
 var experience: int = 0
+## Lifetime killing blows landed by this tower, shown in the detail panel so the
+## player can see which tower is pulling its weight. Counts past the level cap.
+var kills: int = 0
+## Level-1 stats from ElementTypes.DATA; effective damage/fire_rate are these
+## scaled by the current level in _recompute_stats().
+var base_damage: float = 8.0
+var base_fire_rate: float = 1.2
 
 var cell: Vector2i
 var show_range: bool = false:
@@ -48,19 +61,64 @@ func sell_value() -> int:
 	return int(floor(cost * SELL_REFUND_RATE))
 
 
-## Experience required to reach the next level. Flat placeholder until the
-## exponential curve in DESIGN_DOC's "Experience" section is decided.
+func is_at_max_level() -> bool:
+	return level >= MAX_LEVEL
+
+
+## XP needed to reach the next level from the current one, or 0 at the cap.
 func experience_to_next_level() -> int:
-	return XP_TO_NEXT_LEVEL
+	if is_at_max_level():
+		return 0
+	return XP_TO_LEVEL[level - 1]
+
+
+## Called by an enemy this tower killed: tally the kill (always) and award XP
+## (which the level cap may ignore).
+func register_kill(xp: int) -> void:
+	kills += 1
+	gain_experience(xp)
+
+
+## Award XP for a killing blow, rolling any overflow into further levels. Fully
+## automatic - the tower gets stronger with no player action.
+func gain_experience(amount: int) -> void:
+	if is_at_max_level():
+		return
+	experience += amount
+	var leveled := false
+	while not is_at_max_level() and experience >= XP_TO_LEVEL[level - 1]:
+		experience -= XP_TO_LEVEL[level - 1]
+		level += 1
+		leveled = true
+	if is_at_max_level():
+		experience = 0
+	if leveled:
+		_recompute_stats()
+		_show_level_up()
+		queue_redraw()  # the tower grows taller per level - see _draw()
+
+
+## Effective damage and fire rate for the current level, off the base stats.
+func _recompute_stats() -> void:
+	damage = base_damage * (1.0 + DAMAGE_GAIN_PER_LEVEL * (level - 1))
+	fire_rate = base_fire_rate * (1.0 + FIRE_RATE_GAIN_PER_LEVEL * (level - 1))
+
+
+func _show_level_up() -> void:
+	var popup := FLOATING_TEXT_SCENE.instantiate()
+	get_parent().add_child(popup)
+	popup.global_position = ground_position() + Vector2(0.0, -48.0)
+	popup.setup("Level up!", Color(0.5, 0.9, 1.0), 1.5)
 
 
 func configure(tower_element: int) -> void:
 	element = tower_element
 	var data: Dictionary = ElementTypes.DATA[tower_element]
-	damage = data["damage"]
-	fire_rate = data["fire_rate"]
+	base_damage = data["damage"]
+	base_fire_rate = data["fire_rate"]
 	range_radius = data["range"]
 	cost = data["cost"]
+	_recompute_stats()
 
 
 func _process(delta: float) -> void:
@@ -95,11 +153,13 @@ func _fire_at(target: Node2D) -> void:
 	var projectile := PROJECTILE_SCENE.instantiate()
 	get_parent().add_child(projectile)
 	projectile.global_position = ground_position() + Vector2(0.0, -26.0)
-	projectile.setup(target, damage, element)
+	projectile.setup(target, damage, element, self)
 
 
 func _draw() -> void:
-	var color: Color = ElementTypes.color_of(element)
+	# Brighten with each level so a leveled tower reads as stronger at a glance,
+	# on top of the extra height below. Level 1 is unchanged.
+	var color: Color = ElementTypes.color_of(element).lightened((level - 1) * 0.08)
 	# Draw back up by the sort bias baked into this node's position.
 	var origin := Vector2(0.0, -GridManager.RAISED_SORT_BIAS)
 
@@ -115,6 +175,10 @@ func _draw() -> void:
 	draw_colored_polygon(base, color.darkened(0.55))
 	draw_polyline(base + PackedVector2Array([base[0]]), color.darkened(0.7), 1.5)
 
-	draw_rect(Rect2(origin.x - 11.0, origin.y - 34.0, 22.0, 34.0), color.darkened(0.25))
-	draw_rect(Rect2(origin.x - 11.0, origin.y - 34.0, 22.0, 34.0), color.darkened(0.7), false, 1.5)
-	draw_circle(origin + Vector2(0.0, -40.0), 8.0, color)
+	# The turret grows taller with each level so a leveled-up tower stands out at
+	# a glance; the base stays planted on the tile and it extends upward.
+	var turret_height := 34.0 + (level - 1) * 4.0
+	var turret_top := origin.y - turret_height
+	draw_rect(Rect2(origin.x - 11.0, turret_top, 22.0, turret_height), color.darkened(0.25))
+	draw_rect(Rect2(origin.x - 11.0, turret_top, 22.0, turret_height), color.darkened(0.7), false, 1.5)
+	draw_circle(Vector2(origin.x, turret_top - 6.0), 8.0, color)

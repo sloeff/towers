@@ -28,6 +28,7 @@ var _xp_label: Label
 var _damage: Label
 var _range: Label
 var _fire_rate: Label
+var _kills: Label
 var _upgrade_button: Button
 var _sell_button: Button
 
@@ -80,6 +81,7 @@ func _build_ui() -> void:
 	_damage = _add_stat(box)
 	_range = _add_stat(box)
 	_fire_rate = _add_stat(box)
+	_kills = _add_stat(box)
 
 	_build_item_slots(box)
 
@@ -215,24 +217,36 @@ func _add_stat(box: VBoxContainer) -> Label:
 	return label
 
 
-## Populate for `tower` and show. Stats are the tower's current values; with no
-## upgrade system yet they never change while the panel is open.
+## Populate for `tower` and show. The fixed bits (name, range, sell value) are
+## set once here; the level-scaled bits refresh every frame in _refresh_dynamic.
 func show_for(tower: Node2D) -> void:
 	_tower = tower
 	_title.text = "%s Tower" % ElementTypes.element_name(tower.element)
 	_title.add_theme_color_override("font_color", ElementTypes.text_color_of(tower.element))
-	var xp_needed: int = tower.experience_to_next_level()
-	_level.text = "Lv %d" % tower.level
-	_xp_bar.max_value = xp_needed
-	_xp_bar.value = tower.experience
-	_xp_label.text = "%d / %d XP" % [tower.experience, xp_needed]
-	_damage.text = "Damage: %s" % tower.damage
 	_range.text = "Range: %s" % tower.range_radius
-	_fire_rate.text = "Fire rate: %s/s" % tower.fire_rate
 	_sell_button.text = "Sell  +%dg" % tower.sell_value()
+	_refresh_dynamic()
 	visible = true
 	reset_size()
 	_reposition()
+
+
+## Level, XP bar and the level-scaled stats - refreshed each frame so the panel
+## tracks XP gained and level-ups live while it's open.
+func _refresh_dynamic() -> void:
+	_level.text = "Lv %d" % _tower.level
+	_damage.text = "Damage: %.1f" % _tower.damage
+	_fire_rate.text = "Fire rate: %.2f/s" % _tower.fire_rate
+	_kills.text = "Kills: %d" % _tower.kills
+	if _tower.is_at_max_level():
+		_xp_bar.max_value = 1.0
+		_xp_bar.value = 1.0
+		_xp_label.text = "MAX"
+	else:
+		var needed: int = _tower.experience_to_next_level()
+		_xp_bar.max_value = needed
+		_xp_bar.value = _tower.experience
+		_xp_label.text = "%d / %d XP" % [_tower.experience, needed]
 
 
 func hide_panel() -> void:
@@ -252,6 +266,7 @@ func _process(_delta: float) -> void:
 	if not is_instance_valid(_tower):
 		hide_panel()
 		return
+	_refresh_dynamic()
 	_reposition()
 
 

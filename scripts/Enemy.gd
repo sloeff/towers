@@ -30,6 +30,7 @@ var element: int = ElementTypes.Element.FIRE
 var max_health: float = 30.0
 var speed: float = 60.0
 var gold_reward: int = 5
+var xp_reward: int = 10  # XP granted to the tower that lands the killing blow
 var lives_cost: int = 1
 var is_flying: bool = false  # flying units ignore ground obstacles/shortcuts
 var all_resist: bool = false  # "All resist" enemy: 75% from every element
@@ -56,6 +57,7 @@ func configure(spec: Dictionary) -> void:
 	max_health = spec["health"]
 	speed = spec["speed"]
 	gold_reward = spec["gold"]
+	xp_reward = spec["xp"]
 	lives_cost = spec["lives"]
 	rank = spec["rank"]
 	is_flying = spec.get("flying", false)
@@ -106,12 +108,17 @@ func _process(delta: float) -> void:
 		global_position += to_target.normalized() * step
 
 
-func take_damage(amount: float, attacker_element: int) -> void:
+## `source` is the tower that fired the shot, credited with XP if this is the
+## killing blow (per DESIGN_DOC: only the killing blow earns XP). It may have
+## been sold since firing, so it is guarded before use.
+func take_damage(amount: float, attacker_element: int, source: Node2D = null) -> void:
 	var multiplier: float = 0.75 if all_resist else ElementTypes.get_multiplier(attacker_element, element)
 	health -= amount * multiplier
 	queue_redraw()
 	if health <= 0.0:
 		GameManager.add_gold(gold_reward)
+		if is_instance_valid(source):
+			source.register_kill(xp_reward)
 		_show_gold_reward()
 		died.emit(self)
 		queue_free()
