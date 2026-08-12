@@ -118,7 +118,7 @@ func take_damage(amount: float, attacker_element: int, source: Node2D = null) ->
 	if health <= 0.0:
 		GameManager.add_gold(gold_reward)
 		if is_instance_valid(source):
-			source.gain_experience(xp_reward)
+			source.register_kill(xp_reward)
 		_show_gold_reward()
 		died.emit(self)
 		queue_free()

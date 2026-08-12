@@ -28,6 +28,7 @@ var _xp_label: Label
 var _damage: Label
 var _range: Label
 var _fire_rate: Label
+var _kills: Label
 var _upgrade_button: Button
 var _sell_button: Button
 
@@ -80,6 +81,7 @@ func _build_ui() -> void:
 	_damage = _add_stat(box)
 	_range = _add_stat(box)
 	_fire_rate = _add_stat(box)
+	_kills = _add_stat(box)
 
 	_build_item_slots(box)
 
@@ -235,6 +237,7 @@ func _refresh_dynamic() -> void:
 	_level.text = "Lv %d" % _tower.level
 	_damage.text = "Damage: %.1f" % _tower.damage
 	_fire_rate.text = "Fire rate: %.2f/s" % _tower.fire_rate
+	_kills.text = "Kills: %d" % _tower.kills
 	if _tower.is_at_max_level():
 		_xp_bar.max_value = 1.0
 		_xp_bar.value = 1.0

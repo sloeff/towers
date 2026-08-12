@@ -96,6 +96,8 @@ func _ready() -> void:
 	_check("rate 1.776 at L5", _approx(t4.fire_rate, 1.776))
 	t4.gain_experience(500)
 	_check("no xp gained past cap", t4.experience == 0 and t4.level == 5)
+	t4.register_kill(10)
+	_check("kills still count past the level cap", t4.kills == 1 and t4.level == 5)
 
 	# Kill-path attribution: the killing blow credits the source tower.
 	var killer := _new_tower()
@@ -112,6 +114,7 @@ func _ready() -> void:
 	})
 	enemy.take_damage(9999.0, ElementTypes.Element.FIRE, killer)
 	_check("killer gained enemy xp", killer.experience == 10)
+	_check("killer kill counted", killer.kills == 1)
 
 	# Full in-game path: a LIVE tower's projectiles kill enemies until it levels,
 	# proving XP flows tower -> projectile -> enemy death -> level-up popup.
@@ -119,6 +122,7 @@ func _ready() -> void:
 	for i in 10:  # 10 basic kills x 10 xp = 100 = level 2
 		await _kill_one(shooter)
 	_check("live tower reached level 2 via projectile kills", shooter.level == 2)
+	_check("kills tracked through the projectile path", shooter.kills == 10)
 	_check("projectile-driven level-up spawned a popup", _find_floating_text("Level up!") != null)
 
 	# A killing blow from a sold (freed) tower must not error: drive it through a

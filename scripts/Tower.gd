@@ -31,6 +31,9 @@ const FIRE_RATE_GAIN_PER_LEVEL := 0.12
 
 var level: int = 1
 var experience: int = 0
+## Lifetime killing blows landed by this tower, shown in the detail panel so the
+## player can see which tower is pulling its weight. Counts past the level cap.
+var kills: int = 0
 ## Level-1 stats from ElementTypes.DATA; effective damage/fire_rate are these
 ## scaled by the current level in _recompute_stats().
 var base_damage: float = 8.0
@@ -67,6 +70,13 @@ func experience_to_next_level() -> int:
 	if is_at_max_level():
 		return 0
 	return XP_TO_LEVEL[level - 1]
+
+
+## Called by an enemy this tower killed: tally the kill (always) and award XP
+## (which the level cap may ignore).
+func register_kill(xp: int) -> void:
+	kills += 1
+	gain_experience(xp)
 
 
 ## Award XP for a killing blow, rolling any overflow into further levels. Fully
