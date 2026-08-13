@@ -14,6 +14,7 @@ design, balance numbers, map layout and implementation notes.
 
 ## Dev journal
 
+- 2026-08-13 — Made the game landscape-first on phones: the camera fits the board to the screen and re-frames on rotation, and a touch device held in portrait shows a "rotate to landscape" prompt (the board is landscape-shaped) with the run paused until it's rotated.
 - 2026-08-12 — Added touch controls (one-finger pan, two-finger pinch-zoom, tap-to-build) and a two-step build confirm with a ghost preview and a "Build" button, shared by desktop and touch.
 - 2026-08-12 — Made the game fill any screen edge-to-edge (stretch aspect "expand") so it fits laptops, phones and tablets without letterboxing; full phone/tablet playability still needs touch controls.
 - 2026-08-12 — Added automatic tower experience: towers gain XP on killing blows and level up to 5, boosting damage and fire rate, with a live XP bar, a "Level up!" pop-up, and towers growing taller and brighter each level.
@@ -23,6 +24,15 @@ design, balance numbers, map layout and implementation notes.
 
 Open this folder as a project in Godot 4.7+ and press F5.
 `scenes/Main.tscn` is the main scene.
+
+### Testing on a phone (or a phone-sized browser)
+
+`./dev-web.sh` builds the HTML5 export to `builds/web/` and serves it locally. 
+Open the printed `localhost` URL in Chrome and toggle the device toolbar (Cmd+Shift+M)
+to emulate a phone with touch, or open the LAN URL on a real phone on the same
+Wi-Fi. Ctrl+C stops it. Needs the web export templates installed once via
+Godot → Editor → Manage Export Templates. Override the binary or port with
+`GODOT=... PORT=... ./dev-web.sh`.
 
 ## Controls
 

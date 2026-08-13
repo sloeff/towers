@@ -169,3 +169,26 @@ script = ExtResource("3_tower_detail")
 [node name="BuildPrompt" type="PanelContainer" parent="."]
 visible = false
 script = ExtResource("4_build_prompt")
+
+[node name="RotateHint" type="Panel" parent="."]
+process_mode = 3
+visible = false
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_dim")
+
+[node name="Center" type="CenterContainer" parent="RotateHint"]
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Label" type="Label" parent="RotateHint/Center"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "Rotate your device to landscape"
+horizontal_alignment = 1

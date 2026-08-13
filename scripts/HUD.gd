@@ -14,6 +14,15 @@ signal build_cancelled
 
 const MESSAGE_SECONDS := 1.5
 
+## HUD scaling: a device whose short side matches this (points) renders the HUD
+## at 1x; smaller-feeling screens scale up so text and touch targets stay
+## readable, capped so a huge screen doesn't get comically large chrome.
+const UI_REFERENCE := 720.0
+const UI_SCALE_MIN := 1.0
+const UI_SCALE_MAX := 2.5
+const BASE_FONT_SIZE := 16
+const BASE_BUTTON_HEIGHT := 44.0
+
 @onready var gold_label: Label = $TopBar/Row/GoldLabel
 @onready var lives_label: Label = $TopBar/Row/LivesLabel
 @onready var wave_label: Label = $TopBar/Row/WaveLabel
@@ -28,10 +37,41 @@ const MESSAGE_SECONDS := 1.5
 @onready var element_select: Panel = $ElementSelectPanel
 @onready var tower_detail: PanelContainer = $TowerDetailPanel
 @onready var build_prompt: PanelContainer = $BuildPrompt
+@onready var rotate_hint: Panel = $RotateHint
 
 var _spawner: Node = null
 var _message_timeout: float = 0.0
 var _buttons := {}
+var _ui_theme: Theme = null
+
+
+## Larger on small/high-DPI screens, 1x on a desktop-sized viewport, capped at
+## the top. Under the "expand" stretch, a portrait phone's logical short side is
+## the (constrained) width, which is well above the reference, so it scales up.
+static func compute_ui_scale(viewport_size: Vector2) -> float:
+	var short_side := minf(viewport_size.x, viewport_size.y)
+	return clampf(short_side / UI_REFERENCE, UI_SCALE_MIN, UI_SCALE_MAX)
+
+
+## Grow HUD text and touch targets to match the screen. A shared theme carries
+## the font size to every control (anchoring is preserved because we scale the
+## theme, not a transform); buttons also get a taller minimum tap height.
+func apply_ui_scale(viewport_size: Vector2) -> void:
+	var scale := compute_ui_scale(viewport_size)
+	if _ui_theme == null:
+		_ui_theme = Theme.new()
+	_ui_theme.default_font_size = int(round(BASE_FONT_SIZE * scale))
+	for child in get_children():
+		if child is Control:
+			(child as Control).theme = _ui_theme
+	next_wave_button.custom_minimum_size.y = roundf(BASE_BUTTON_HEIGHT * scale)
+
+
+## Full-screen "rotate to landscape" cover, shown when a phone is held upright
+## (the board is landscape-shaped, so portrait is unplayable). Drawn on top of
+## the rest of the HUD and set to process while paused.
+func show_rotate_hint(visible: bool) -> void:
+	rotate_hint.visible = visible
 
 
 func _ready() -> void:
