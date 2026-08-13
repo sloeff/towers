@@ -568,7 +568,7 @@ architectural rules and invariants live in `CLAUDE.md`.*
 
 ```
 Main.tscn        the level, and the main scene
-  Camera2D       zoom 1.25, centred on the grid at startup
+  Camera2D       fit-to-width zoom, centred on the grid at startup
   Map            builds one node per grid cell from the route data
   Entities       holds enemies, towers, projectiles, floating text
   WaveSpawner    wave composition and timing
@@ -652,10 +652,42 @@ letterboxing — wider or taller devices simply see more of the map, and
 the HUD (anchored to the screen edges) reflows to fit. The `_draw`
 placeholder art is vector, so it rescales crisply at any size. The web
 export uses `canvas_resize_policy = 2` (adaptive), so the canvas tracks
-the browser window. This makes the game *fit* laptops, phones and
-tablets; making a phone/tablet fully *playable* also needs touch input
-(pan, pinch-zoom, tap-to-build), which is a separate piece of work. The
-native desktop window is only a debugging surface and is left unscaled.
+the browser window. The native desktop window is only a debugging
+surface.
+
+`expand` alone isn't enough to be *playable* on a phone: it removes
+letterboxing but leaves the board at a fixed zoom, so on a tall screen
+the board is a small island in a sea of empty space and the HUD text is
+tiny. `Main._apply_display_layout` fixes that — it runs at startup
+(deferred one frame because the web canvas reports its real size late)
+and again on every viewport `size_changed`:
+
+- **Fit-to-width camera** (`_fit_camera_to`): zoom so the board's world
+  bounds span the screen width minus `FIT_MARGIN` (6%), clamped to the
+  pan/zoom limits, then center on the board. Visible world width =
+  viewport ÷ zoom. The board is an isometric diamond, so `_board_bounds`
+  takes the min/max of all four grid corners (padded a tile), not a
+  corner-to-corner span. The camera only re-fits when the orientation
+  actually flips (portrait ↔ landscape), so a minor resize — a mobile
+  browser's address bar sliding in — doesn't stomp a manual pinch.
+- **HUD scaling** (`HUD.apply_ui_scale`): a `ui_scale` derived from the
+  viewport's short side vs a 720 reference (clamped 1.0–2.5) grows the
+  HUD font (via a shared `Theme`) and button tap heights.
+
+**Landscape-first on mobile.** The board is a wide 2:1 isometric diamond,
+so a portrait phone (≈1:2.2) can only ever fill a quarter of the height
+with it — the fit works but looks empty and small. Landscape (≈2.2:1)
+matches the board almost exactly and fills the screen. So on a *touch*
+device held in portrait (`_should_prompt_rotate`, gated on
+`DisplayServer.is_touchscreen_available()`), a full-screen "rotate to
+landscape" overlay (`HUD.RotateHint`) covers the board and the run pauses
+until it's rotated. Desktop, which can't rotate, is never prompted — a
+narrow desktop window just fits-to-width as before.
+
+Pause has overlapping reasons (awaiting element, run ended, rotate
+blocked); `Main._update_pause` ORs the flags so clearing one (e.g.
+rotating back to landscape) never wrongly resumes a run that's still on
+the element-select or game-over screen.
 
 ### Art
 

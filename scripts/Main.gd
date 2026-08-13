@@ -7,6 +7,9 @@ const TOWER_SCENE := preload("res://scenes/Tower.tscn")
 const MIN_ZOOM := 0.5
 const MAX_ZOOM := 2.0
 const KEYBOARD_PAN_SPEED := 600.0
+## On startup the camera zooms so the board spans this fraction of the screen
+## width, leaving a little breathing room at the left and right edges.
+const FIT_MARGIN := 0.06
 ## A one-finger touch that travels less than this (screen px) counts as a tap;
 ## more than this and it's a pan, so no build is triggered on release.
 const TAP_MAX_TRAVEL := 16.0
@@ -44,6 +47,18 @@ var _has_pending := false
 var _pending_cell: Vector2i = Vector2i(-1, -1)
 var _pending_ghost: Node2D = null
 
+## Pause has several independent reasons that can overlap (picking the starting
+## element, the run ending, a phone held in portrait). Each is a flag and
+## `_update_pause` ORs them, so clearing one never wrongly resumes another.
+var _awaiting_element := true
+var _run_ended := false
+var _rotate_blocked := false
+## Orientation the camera was last framed for, so a minor resize (e.g. a mobile
+## browser's address bar) doesn't re-fit and stomp a manual pinch - only an
+## actual portrait/landscape flip does.
+var _has_fit := false
+var _fit_portrait := false
+
 
 func _ready() -> void:
 	GameManager.new_game()
@@ -58,7 +73,11 @@ func _ready() -> void:
 	hud.build_confirmed.connect(_confirm_pending_build)
 	hud.build_cancelled.connect(_clear_pending_build)
 	hud.set_spawner(spawner)
-	_center_camera()
+	# Re-frame the board and re-check orientation whenever the viewport changes
+	# (rotating a phone, resizing a window). The web canvas often reports its
+	# real size a frame late, so also run it deferred once at startup.
+	get_viewport().size_changed.connect(_apply_display_layout)
+	_apply_display_layout.call_deferred()
 	_begin_element_select()
 
 
@@ -67,20 +86,75 @@ func _ready() -> void:
 ## process_mode = Always so its buttons still respond - same trick as the
 ## end-of-run ResultPanel.
 func _begin_element_select() -> void:
-	get_tree().paused = true
+	_awaiting_element = true
+	_update_pause()
 	hud.show_element_select()
 
 
 func _on_starting_element_chosen(element: int) -> void:
 	GameManager.unlock_element(element)
 	hud.select_element(element)
-	get_tree().paused = false
+	_awaiting_element = false
+	_update_pause()
 
 
-func _center_camera() -> void:
-	var corner_a := GridManager.cell_to_world(Vector2i.ZERO)
-	var corner_b := GridManager.cell_to_world(GridManager.GRID_SIZE - Vector2i.ONE)
-	camera.position = (corner_a + corner_b) * 0.5
+## The tree is paused while any reason to hold the run is active.
+func _update_pause() -> void:
+	get_tree().paused = _awaiting_element or _run_ended or _rotate_blocked
+
+
+## A touch device held in portrait can't show the landscape-shaped board, so we
+## ask the player to rotate rather than render a tiny, half-empty board.
+func _should_prompt_rotate(viewport_size: Vector2, touch_available: bool) -> bool:
+	return touch_available and viewport_size.y > viewport_size.x
+
+
+## Frame the board, size the HUD, and toggle the portrait rotate hint. Runs at
+## startup and on every viewport change; the camera only re-fits when the
+## orientation actually flips (see `_fit_portrait`).
+func _apply_display_layout() -> void:
+	var size := get_viewport_rect().size
+	if size.x <= 0.0 or size.y <= 0.0:
+		_apply_display_layout.call_deferred()
+		return
+	var portrait := size.y > size.x
+	if not _has_fit or portrait != _fit_portrait:
+		_fit_camera_to(size)
+		_has_fit = true
+		_fit_portrait = portrait
+	hud.apply_ui_scale(size)
+	_rotate_blocked = _should_prompt_rotate(size, DisplayServer.is_touchscreen_available())
+	hud.show_rotate_hint(_rotate_blocked)
+	_update_pause()
+
+
+## The board is an isometric diamond, so its world-space extent is not a simple
+## corner-to-corner span - take the min/max of all four grid corners, padded by
+## a tile so the outermost tiles aren't clipped at the screen edge.
+func _board_bounds() -> Rect2:
+	var corners := [
+		Vector2i.ZERO,
+		Vector2i(GridManager.GRID_SIZE.x - 1, 0),
+		Vector2i(0, GridManager.GRID_SIZE.y - 1),
+		GridManager.GRID_SIZE - Vector2i.ONE,
+	]
+	var min_p := Vector2.INF
+	var max_p := -Vector2.INF
+	for cell in corners:
+		var world: Vector2 = GridManager.cell_to_world(cell)
+		min_p = min_p.min(world)
+		max_p = max_p.max(world)
+	var pad := Vector2(GridManager.TILE_WIDTH, GridManager.TILE_HEIGHT) * 0.5
+	return Rect2(min_p - pad, (max_p - min_p) + pad * 2.0)
+
+
+## Zoom so the board spans the screen width (minus FIT_MARGIN) and center on it.
+## Visible world width = viewport_width / zoom, so zoom = width / board_width.
+func _fit_camera_to(viewport_size: Vector2) -> void:
+	var bounds := _board_bounds()
+	var target := viewport_size.x * (1.0 - FIT_MARGIN) / bounds.size.x
+	camera.zoom = Vector2.ONE * clampf(target, MIN_ZOOM, MAX_ZOOM)
+	camera.position = bounds.get_center()
 
 
 func _process(delta: float) -> void:
@@ -343,7 +417,8 @@ func _on_element_selected(element: int) -> void:
 func _on_game_over() -> void:
 	_clear_pending_build()
 	_deselect_tower()
-	get_tree().paused = true
+	_run_ended = true
+	_update_pause()
 	var waves := GameManager.wave_number
 	hud.show_result("Game Over", "You survived %d wave%s." % [waves, "" if waves == 1 else "s"])
 
@@ -351,11 +426,13 @@ func _on_game_over() -> void:
 func _on_victory() -> void:
 	_clear_pending_build()
 	_deselect_tower()
-	get_tree().paused = true
+	_run_ended = true
+	_update_pause()
 	hud.show_result("Victory!", "You cleared all %d waves." % GameManager.MAX_WAVES)
 
 
 func _restart() -> void:
-	get_tree().paused = false
+	_run_ended = false
+	_update_pause()
 	GridManager.occupied_cells.clear()
 	get_tree().reload_current_scene()
