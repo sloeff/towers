@@ -8,13 +8,21 @@ the exit.
 At the start of a run you pick **one element** and can only build that
 element's towers. Every 5 rounds you get a choice: advance an element you
 own to its next **tier** (then upgrade its towers for gold) or unlock a
-new element. Combining elements into hybrid towers is still to come.
+new element. Once you own two elements you can **transform** a placed tower
+into their **combination tower** — the first, Fire + Air → Fire Breath, is in;
+more combos are still to come.
 
 **[DESIGN_DOC.md](DESIGN_DOC.md) is the single source of truth** for
 design, balance numbers, map layout and implementation notes.
 
 ## Dev journal
 
+- 2026-08-14 — Added the first **combination tower**: once you own two elements, a
+  placed basic tower can **Transform** (from its detail panel, for gold) into their
+  combo. Shipped Fire + Air → **Fire Breath**, which deals Fire-typed
+  **area-of-effect** damage and hits over 2× as hard as either parent. The combo
+  carries its XP level through the transform and gets its own tier ladder, capped
+  by the lower of its two parents' tiers.
 - 2026-08-14 — Added the elemental **tier** economy: every 5 rounds the game pauses and offers a choice — advance an element you already own to its next tier, or unlock a new one. Placed towers can then be upgraded a tier at a time for gold (3× the purchase price), boosting damage and fire rate and raising their XP cap, all shown and driven from the tower detail panel. (Combination towers, which build on this, are still to come.)
 - 2026-08-13 — Made the game landscape-first on phones: the camera fits the board to the screen and re-frames on rotation, and a touch device held in portrait shows a "rotate to landscape" prompt (the board is landscape-shaped) with the run paused until it's rotated.
 - 2026-08-12 — Added touch controls (one-finger pan, two-finger pinch-zoom, tap-to-build) and a two-step build confirm with a ghost preview and a "Build" button, shared by desktop and touch.
@@ -44,7 +52,7 @@ Desktop and touch share one set of actions:
 |---|---|---|
 | Pick an element | Pick an element | Choose your element at the start of a run |
 | Click a green tile | Tap a green tile | Preview a tower there, then press **Build** to confirm |
-| Click a placed tower | Tap a placed tower | Open its detail panel (stats, sell, upgrade tier) |
+| Click a placed tower | Tap a placed tower | Open its detail panel (stats, sell, upgrade tier, transform to a combo) |
 | Right-drag, or arrow keys | One-finger drag | Pan the camera |
 | Mouse wheel | Two-finger pinch | Zoom |
 | Escape | Tap empty ground / ✕ | Cancel a pending build or close a panel |

@@ -270,8 +270,9 @@ tower gets designed properly.
 
 At the start of the game the player picks **one element**, and can only
 build towers of that element until more are unlocked. *(The tier economy
-in this section is implemented; the combination towers from
-["Transforming"](#transforming-into-a-combination-tower) onward are not.)*
+and the combination-tower framework + first combo (Fire Breath) are
+implemented; the remaining combos and their abilities are not — see
+["Transforming"](#transforming-into-a-combination-tower).)*
 
 ### Elemental tiers *(implemented)*
 
@@ -301,50 +302,69 @@ live in `Tower.gd` and [Balance](#12-balance).
 > **Supersedes the original "2 tokens per tier" model.** The first design
 > had tokens accumulate (2 on an element = its one Tier 2). The built
 > system instead gives one choice per milestone, each advancing a tier,
-> with no Tier-2 ceiling. When combos are built, reconcile the
-> ["both parents at Level 2"](#upgrading-a-combination-tower) rule below
-> with this uncapped tier ladder.
+> with no Tier-2 ceiling. The old
+> ["both parents at Level 2"](#upgrading-a-combination-tower) combo rule has
+> been reconciled with this uncapped ladder: a combo has its own tier ladder
+> capped by the lower of its two parents' tiers.
 
 ### Transforming into a combination tower
 
-Once two elements are unlocked, an existing **level 1** tower of either
-element can be transformed into their combo tower — e.g. a level 1 Fire
-Tower becomes a level 1 Hot Water Tower once the player has spent a token
-on Water. Only level 1 towers can transform; a level 2 tower cannot.
+Once two elements are unlocked, a placed **basic** tower of either element
+can be **transformed** into their combo tower from its detail panel, for
+gold — e.g. a Fire Tower becomes a Fire Breath tower once the player owns
+Air. Any basic tower can transform (regardless of its XP level); it
+**carries its XP level over** and drops to combo **Tier 1**. A combo deals
+damage typed as one of its parents (its `damage_element`), so the usual
+elemental multiplier still applies.
 
-| Pair | Result(s) | Player choice? |
-|---|---|---|
-| Fire + Earth | Lava, Fire Rocks | Yes — two distinct towers, unique ability each |
-| Fire + Air | Fire Breath | No — single result |
-| Fire + Water | Hot Water / Steam | No — single result |
-| Earth + Air | Meteor, Pull Tower | Yes — two distinct towers, unique ability each |
-| Earth + Water | Mud Flow, Quick Sand | Yes — two distinct towers, unique ability each |
-| Air + Water | Water Tornado, Hail | Yes — two distinct towers, unique ability each |
+> **Shipped model (supersedes the old "only level-1 towers transform" rule).**
+> The original design let only a level-1 tower transform. The built system
+> instead lets any basic tower transform, carrying its XP level. Combos are a
+> deliberate power spike: Fire Breath hits ~2.3× a parent's single-target DPS
+> *and* splashes. See [Balance](#12-balance).
+
+| Pair | Result(s) | Player choice? | Status |
+|---|---|---|---|
+| Fire + Air | Fire Breath | No — single result | **Built** (Fire-typed AoE) |
+| Fire + Earth | Lava, Fire Rocks | Yes — two distinct towers, unique ability each | Not built |
+| Fire + Water | Hot Water / Steam | No — single result | Not built |
+| Earth + Air | Meteor, Pull Tower | Yes — two distinct towers, unique ability each | Not built |
+| Earth + Water | Mud Flow, Quick Sand | Yes — two distinct towers, unique ability each | Not built |
+| Air + Water | Water Tornado, Hail | Yes — two distinct towers, unique ability each | Not built |
 
 Pull Tower pulls air units to the ground so they become ground units.
 
 Where a pair lists two towers, both exist as separate combo towers with
 their own unique ability — the player picks which one to build when
-transforming, rather than it being resolved automatically.
+transforming, rather than it being resolved automatically. *(The transform
+action currently resolves a single available combo; the two-result pairs
+need a picker UI, not built yet.)*
 
 No 3- or 4-element combinations are planned. There's no limit on how many
-combo *pairs* can be active at once, though: if a player unlocks 3+
-elements over a run, every valid pair among them is available. The
-level-1-only restriction still applies per tower.
+combo *pairs* can be active at once: if a player unlocks 3+ elements over a
+run, every valid pair among them is available.
+
+Combo definitions and stats live in `autoload/Combos.gd` (`Combos.DATA`),
+mirroring `ElementTypes`; adding a combo is a data entry.
 
 ### Upgrading a combination tower
 
-Requires **both** parent elements at level 2 — 2 tokens each, 4 total. A
-big investment, so the resulting combo tower's special ability should be
-noticeably stronger to justify it.
+A combo has its **own tier ladder**, capped by the **lower of its two
+parents' tiers** (this replaces the old "both parents at Level 2, 2 tokens
+each" rule and reconciles combos with the now-uncapped tier ladder). Like a
+basic tower it starts at Tier 1 and is upgraded one tier at a time for gold
+from its detail panel, up to that cap. Each tier applies the standard +50%
+damage / +20% fire-rate on the combo's (already high) base, so a tiered
+combo pulls even further ahead — the payoff for advancing both parents.
 
 ### Cost
 
 A tier choice makes an upgrade *available*; it doesn't perform it for
 free. Upgrading a placed tower one tier costs **3× its purchase price** in
 gold (Fire 150, Water 150, Earth 180, Air 165). *(Implemented.)* Combo
-transforms will layer their own gold cost on top — **those amounts are
-still undecided** and block the combo feature.
+transforms layer their own gold cost on top: **Fire Breath costs 100g** to
+transform (and 390g per combo-tier step, 3× its 130 base cost). The other
+pairs' costs are still undecided.
 
 ### Interaction design
 
@@ -357,8 +377,10 @@ still undecided** and block the combo feature.
   tower, disabled-but-priced when the player can't afford it, and
   *"Tier N (max)"* when the tower already matches its element's tier.
   *(Implemented.)*
-- *(Deferred with combos)* the same panel will also offer *"Transform into
-  [Combo Tower]"* when a valid second element is owned.
+- Click a placed **basic** tower whose partner element is owned → the detail
+  panel offers a **Transform → [Combo]** button with its gold cost,
+  disabled-but-priced when the player can't afford it. *(Implemented for
+  Fire + Air → Fire Breath; hidden for combos and when no combo is available.)*
 
 ---
 
@@ -548,6 +570,24 @@ Tier and XP-level multipliers stack on the base stat, so a Tier-2 tower
 at XP level 3 does `base × 1.50 × 1.36` damage. Numbers live in `Tower.gd`
 (`TIER_DAMAGE_GAIN`, `TIER_FIRE_RATE_GAIN`, `XP_LEVELS_PER_TIER`,
 `UPGRADE_COST_MULT`).
+
+### Combination towers
+
+A transform spends a scarce every-5-rounds element unlock plus gold, so a
+combo is a deliberate power spike over either parent. Stats live in
+`autoload/Combos.gd` (`Combos.DATA`). Combos ride the same tier and XP-level
+ladders as basic towers (a combo's tier cap is the lower of its two parents'
+tiers).
+
+| Combo | Parents | Cost / Transform | Damage | Fire rate | Single-target DPS | Range | AoE radius | Type |
+|---|---|---|---|---|---|---|---|---|
+| Fire Breath | Fire + Air | 130 / 100g | 18 | 1.3/s | 23.4 (~2.3× a parent) | 200 | 85 | Fire |
+
+Fire Breath deals full damage to every enemy within its AoE radius, each
+taking its own elemental multiplier (Fire-typed: 125% vs Water). `Cost`
+feeds the combo-tier upgrade (3× → 390g) and sell value (75% → 97g);
+`Transform` is the gold to convert a placed basic tower, which carries its
+XP level and resets to combo Tier 1.
 
 ### Enemies
 

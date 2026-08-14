@@ -10,6 +10,7 @@ extends PanelContainer
 
 signal sell_pressed(tower: Node2D)
 signal upgrade_pressed(tower: Node2D)
+signal transform_pressed(tower: Node2D)
 signal close_pressed
 
 ## Keep the whole panel this far inside the viewport edges.
@@ -31,6 +32,7 @@ var _damage: Label
 var _range: Label
 var _fire_rate: Label
 var _kills: Label
+var _transform_button: Button
 var _upgrade_button: Button
 var _sell_button: Button
 
@@ -90,6 +92,13 @@ func _build_ui() -> void:
 	_kills = _add_stat(box)
 
 	_build_item_slots(box)
+
+	# Transform is a promoted, distinct action (a placed basic tower becoming its
+	# combo), so it gets its own full-width row above Upgrade/Sell.
+	_transform_button = Button.new()
+	_transform_button.focus_mode = Control.FOCUS_NONE
+	_transform_button.pressed.connect(_on_transform_pressed)
+	box.add_child(_transform_button)
 
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 8)
@@ -226,8 +235,9 @@ func _add_stat(box: VBoxContainer) -> Label:
 ## set once here; the level-scaled bits refresh every frame in _refresh_dynamic.
 func show_for(tower: Node2D) -> void:
 	_tower = tower
-	_title.text = "%s Tower" % ElementTypes.element_name(tower.element)
-	_title.add_theme_color_override("font_color", ElementTypes.text_color_of(tower.element))
+	_title.text = tower.display_name() if tower.is_combo else "%s Tower" % ElementTypes.element_name(tower.element)
+	_title.add_theme_color_override("font_color",
+		tower.display_color() if tower.is_combo else ElementTypes.text_color_of(tower.element))
 	_range.text = "Range: %s" % tower.range_radius
 	_sell_button.text = "Sell  +%dg" % tower.sell_value()
 	_refresh_dynamic()
@@ -245,6 +255,7 @@ func _refresh_dynamic() -> void:
 	_fire_rate.text = "Fire rate: %.2f/s" % _tower.fire_rate
 	_kills.text = "Kills: %d" % _tower.kills
 	_refresh_upgrade_button()
+	_refresh_transform_button()
 	if _tower.is_at_max_level():
 		_xp_bar.max_value = 1.0
 		_xp_bar.value = 1.0
@@ -261,7 +272,7 @@ func _refresh_dynamic() -> void:
 ## still shows the price - when the player can't afford it, and reads as maxed
 ## when the tower already matches its element's tier.
 func _refresh_upgrade_button() -> void:
-	var element_tier: int = GameManager.element_tier(_tower.element)
+	var element_tier: int = GameManager.available_tier(_tower)
 	if _tower.tier < element_tier:
 		var upgrade_cost: int = _tower.upgrade_cost()
 		var affordable: bool = GameManager.gold >= upgrade_cost
@@ -272,6 +283,22 @@ func _refresh_upgrade_button() -> void:
 		_upgrade_button.text = "Tier %d (max)" % _tower.tier
 		_upgrade_button.disabled = true
 		_upgrade_button.tooltip_text = "Advance this element's tier to upgrade further"
+
+
+## Offer "Transform → [Combo]" only for a basic tower whose partner element is
+## owned; priced-but-disabled when the player can't afford it; hidden otherwise
+## (including for combos, which don't re-transform in this slice).
+func _refresh_transform_button() -> void:
+	var combo_id: int = GameManager.available_combo_for(_tower)
+	if combo_id == -1:
+		_transform_button.visible = false
+		return
+	_transform_button.visible = true
+	var transform_cost: int = Combos.DATA[combo_id]["transform_cost"]
+	var affordable: bool = GameManager.gold >= transform_cost
+	_transform_button.text = "Transform → %s  −%dg" % [Combos.name_of(combo_id), transform_cost]
+	_transform_button.disabled = not affordable
+	_transform_button.tooltip_text = "" if affordable else "Not enough gold"
 
 
 func hide_panel() -> void:
@@ -287,6 +314,11 @@ func _on_sell_pressed() -> void:
 func _on_upgrade_pressed() -> void:
 	if is_instance_valid(_tower):
 		upgrade_pressed.emit(_tower)
+
+
+func _on_transform_pressed() -> void:
+	if is_instance_valid(_tower):
+		transform_pressed.emit(_tower)
 
 
 func _process(_delta: float) -> void:

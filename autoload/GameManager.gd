@@ -79,6 +79,27 @@ func is_element_unlocked(element: int) -> bool:
 	return element_tiers.has(element)
 
 
+## The highest tier this tower could be upgraded to right now: a basic tower is
+## capped by its element's tier; a combo by the LOWER of its two parents' tiers.
+func available_tier(tower) -> int:
+	var cap: int = 0x7FFFFFFF
+	for e in tower.source_elements():
+		cap = mini(cap, element_tier(e))
+	return cap
+
+
+## A combo this basic tower can transform into right now (its partner element is
+## owned), or -1. Combos themselves never re-transform in this slice.
+func available_combo_for(tower) -> int:
+	if tower.is_combo:
+		return -1
+	for combo_id in Combos.combos_including(tower.element):
+		for parent in Combos.DATA[combo_id]["parents"]:
+			if parent != tower.element and is_element_unlocked(parent):
+				return combo_id
+	return -1
+
+
 func add_gold(amount: int) -> void:
 	gold += amount
 	gold_changed.emit(gold)
