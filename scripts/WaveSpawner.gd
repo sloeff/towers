@@ -38,6 +38,10 @@ var time_until_next_wave: float = 0.0
 
 var _alive_enemies: int = 0
 var _spawning: bool = false
+## The last wave we announced as cleared, so wave_cleared (and the victory it
+## triggers) fires exactly once per wave even if the live count is ever driven
+## past zero - the tier choice and victory screens must not reopen.
+var _cleared_wave: int = 0
 
 
 func _ready() -> void:
@@ -151,6 +155,9 @@ func _on_enemy_removed(_enemy: Node) -> void:
 	_alive_enemies -= 1
 	if _alive_enemies > 0 or _spawning:
 		return
+	if GameManager.wave_number == _cleared_wave:
+		return  # already announced this wave; never fire twice
+	_cleared_wave = GameManager.wave_number
 	wave_cleared.emit(GameManager.wave_number)
 	if GameManager.wave_number >= GameManager.MAX_WAVES:
 		GameManager.win()

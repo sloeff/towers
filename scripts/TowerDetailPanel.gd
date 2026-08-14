@@ -9,6 +9,7 @@ extends PanelContainer
 ## DESIGN_DOC's "Items") drop into the same vertical stack.
 
 signal sell_pressed(tower: Node2D)
+signal upgrade_pressed(tower: Node2D)
 signal close_pressed
 
 ## Keep the whole panel this far inside the viewport edges.
@@ -22,6 +23,7 @@ const TOWER_ANCHOR := Vector2(0.0, -40.0)
 var _tower: Node2D = null
 
 var _title: Label
+var _tier: Label
 var _level: Label
 var _xp_bar: ProgressBar
 var _xp_label: Label
@@ -74,6 +76,10 @@ func _build_ui() -> void:
 	close_button.pressed.connect(func() -> void: close_pressed.emit())
 	header.add_child(close_button)
 
+	# Tier (the paid upgrade axis) sits above the XP level row, which is the
+	# automatic axis - two separate progressions, kept visually distinct.
+	_tier = _add_stat(box)
+
 	_build_potion_effects(box)
 
 	_build_xp_row(box)
@@ -91,10 +97,9 @@ func _build_ui() -> void:
 
 	_upgrade_button = Button.new()
 	_upgrade_button.text = "Upgrade"
-	_upgrade_button.disabled = true
-	_upgrade_button.tooltip_text = "Coming soon"
 	_upgrade_button.focus_mode = Control.FOCUS_NONE
 	_upgrade_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_upgrade_button.pressed.connect(_on_upgrade_pressed)
 	buttons.add_child(_upgrade_button)
 
 	_sell_button = Button.new()
@@ -234,10 +239,12 @@ func show_for(tower: Node2D) -> void:
 ## Level, XP bar and the level-scaled stats - refreshed each frame so the panel
 ## tracks XP gained and level-ups live while it's open.
 func _refresh_dynamic() -> void:
+	_tier.text = "Tier %d" % _tower.tier
 	_level.text = "Lv %d" % _tower.level
 	_damage.text = "Damage: %.1f" % _tower.damage
 	_fire_rate.text = "Fire rate: %.2f/s" % _tower.fire_rate
 	_kills.text = "Kills: %d" % _tower.kills
+	_refresh_upgrade_button()
 	if _tower.is_at_max_level():
 		_xp_bar.max_value = 1.0
 		_xp_bar.value = 1.0
@@ -249,6 +256,24 @@ func _refresh_dynamic() -> void:
 		_xp_label.text = "%d / %d XP" % [_tower.experience, needed]
 
 
+## The Upgrade button offers the next tier only when the tower's element has
+## been advanced past it (via the every-5-rounds choice). It goes disabled - but
+## still shows the price - when the player can't afford it, and reads as maxed
+## when the tower already matches its element's tier.
+func _refresh_upgrade_button() -> void:
+	var element_tier: int = GameManager.element_tier(_tower.element)
+	if _tower.tier < element_tier:
+		var upgrade_cost: int = _tower.upgrade_cost()
+		var affordable: bool = GameManager.gold >= upgrade_cost
+		_upgrade_button.text = "Upgrade → T%d  -%dg" % [_tower.tier + 1, upgrade_cost]
+		_upgrade_button.disabled = not affordable
+		_upgrade_button.tooltip_text = "" if affordable else "Not enough gold"
+	else:
+		_upgrade_button.text = "Tier %d (max)" % _tower.tier
+		_upgrade_button.disabled = true
+		_upgrade_button.tooltip_text = "Advance this element's tier to upgrade further"
+
+
 func hide_panel() -> void:
 	_tower = null
 	visible = false
@@ -257,6 +282,11 @@ func hide_panel() -> void:
 func _on_sell_pressed() -> void:
 	if is_instance_valid(_tower):
 		sell_pressed.emit(_tower)
+
+
+func _on_upgrade_pressed() -> void:
+	if is_instance_valid(_tower):
+		upgrade_pressed.emit(_tower)
 
 
 func _process(_delta: float) -> void:

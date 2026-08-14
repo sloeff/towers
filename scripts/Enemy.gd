@@ -41,6 +41,11 @@ var health: float
 ## they shoot whatever is closest to leaking.
 var path_progress: float = 0.0
 
+## Set the instant this enemy is killed or leaks, so it can be removed only
+## once. `queue_free` is deferred, so without this a second hit or a goal-reach
+## in the same frame would fire `died`/`reached_goal` again and double-count.
+var _removed: bool = false
+
 var _goal_cell: Vector2i
 var _path: Array[Vector2i] = []
 var _index: int = 0
@@ -112,10 +117,13 @@ func _process(delta: float) -> void:
 ## killing blow (per DESIGN_DOC: only the killing blow earns XP). It may have
 ## been sold since firing, so it is guarded before use.
 func take_damage(amount: float, attacker_element: int, source: Node2D = null) -> void:
+	if _removed:
+		return
 	var multiplier: float = 0.75 if all_resist else ElementTypes.get_multiplier(attacker_element, element)
 	health -= amount * multiplier
 	queue_redraw()
 	if health <= 0.0:
+		_removed = true
 		GameManager.add_gold(gold_reward)
 		if is_instance_valid(source):
 			source.register_kill(xp_reward)
@@ -134,6 +142,9 @@ func _show_gold_reward() -> void:
 
 
 func _on_reached_goal() -> void:
+	if _removed:
+		return
+	_removed = true
 	reached_goal.emit(self)
 	GameManager.lose_life(lives_cost)
 	queue_free()

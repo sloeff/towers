@@ -23,12 +23,25 @@ const SELL_REFUND_RATE := 0.75
 ## unaffected), capped at MAX_LEVEL. Not to be confused with the token-gated
 ## "level 2" of combination towers - a separate axis (DESIGN_DOC section 8).
 const MAX_LEVEL := 5
-## XP to climb from level 1->2, 2->3, ... (index = current level - 1).
+## XP to climb from level 1->2, 2->3, ... (index = current level - 1). Past the
+## end of the array (a higher-tier tower's raised cap) the last step repeats.
 const XP_TO_LEVEL := [100, 160, 260, 410]
 ## Per-level stat gains, as a fraction of the base stat, added linearly.
 const DAMAGE_GAIN_PER_LEVEL := 0.18
 const FIRE_RATE_GAIN_PER_LEVEL := 0.12
 
+## Tower tiers (DESIGN_DOC section 8) - the token/choice axis, separate from the
+## automatic XP level above. The player advances an element's tier through the
+## every-5-rounds choice; each placed tower is then upgraded one tier at a time
+## for gold. A tier multiplies the tower's BASE damage and fire rate and raises
+## its XP level cap; range and purchase cost are unchanged.
+const TIER_DAMAGE_GAIN := 0.50
+const TIER_FIRE_RATE_GAIN := 0.20
+const XP_LEVELS_PER_TIER := 2
+## Upgrading one tier costs this multiple of the tower's purchase price.
+const UPGRADE_COST_MULT := 3
+
+var tier: int = 1
 var level: int = 1
 var experience: int = 0
 ## Lifetime killing blows landed by this tower, shown in the detail panel so the
@@ -61,15 +74,39 @@ func sell_value() -> int:
 	return int(floor(cost * SELL_REFUND_RATE))
 
 
+## Highest XP level this tower can reach, raised by its tier.
+func max_level() -> int:
+	return MAX_LEVEL + XP_LEVELS_PER_TIER * (tier - 1)
+
+
 func is_at_max_level() -> bool:
-	return level >= MAX_LEVEL
+	return level >= max_level()
+
+
+## XP to climb from the given level, clamped to the last defined step so a
+## higher-tier tower can keep leveling past the base curve.
+func _xp_for_level(current_level: int) -> int:
+	return XP_TO_LEVEL[mini(current_level - 1, XP_TO_LEVEL.size() - 1)]
+
+
+## Cost in gold to upgrade this tower one tier (DESIGN_DOC section 8).
+func upgrade_cost() -> int:
+	return cost * UPGRADE_COST_MULT
+
+
+## Advance this tower one tier: bigger base stats and a higher XP cap. The
+## caller checks the element's tier and charges gold; this just applies it.
+func upgrade_tier() -> void:
+	tier += 1
+	_recompute_stats()
+	queue_redraw()
 
 
 ## XP needed to reach the next level from the current one, or 0 at the cap.
 func experience_to_next_level() -> int:
 	if is_at_max_level():
 		return 0
-	return XP_TO_LEVEL[level - 1]
+	return _xp_for_level(level)
 
 
 ## Called by an enemy this tower killed: tally the kill (always) and award XP
@@ -86,8 +123,8 @@ func gain_experience(amount: int) -> void:
 		return
 	experience += amount
 	var leveled := false
-	while not is_at_max_level() and experience >= XP_TO_LEVEL[level - 1]:
-		experience -= XP_TO_LEVEL[level - 1]
+	while not is_at_max_level() and experience >= _xp_for_level(level):
+		experience -= _xp_for_level(level)
 		level += 1
 		leveled = true
 	if is_at_max_level():
@@ -98,10 +135,21 @@ func gain_experience(amount: int) -> void:
 		queue_redraw()  # the tower grows taller per level - see _draw()
 
 
-## Effective damage and fire rate for the current level, off the base stats.
+## Base damage scaled to a tier - the single source for both a live tower's
+## stats and the choice screen's tier preview. Range and cost don't scale.
+static func damage_at_tier(base: float, at_tier: int) -> float:
+	return base * (1.0 + TIER_DAMAGE_GAIN * (at_tier - 1))
+
+
+static func fire_rate_at_tier(base: float, at_tier: int) -> float:
+	return base * (1.0 + TIER_FIRE_RATE_GAIN * (at_tier - 1))
+
+
+## Effective damage and fire rate off the base stats, scaled by both axes: the
+## tier (paid upgrade) and the XP level (automatic). Range is unaffected by both.
 func _recompute_stats() -> void:
-	damage = base_damage * (1.0 + DAMAGE_GAIN_PER_LEVEL * (level - 1))
-	fire_rate = base_fire_rate * (1.0 + FIRE_RATE_GAIN_PER_LEVEL * (level - 1))
+	damage = damage_at_tier(base_damage, tier) * (1.0 + DAMAGE_GAIN_PER_LEVEL * (level - 1))
+	fire_rate = fire_rate_at_tier(base_fire_rate, tier) * (1.0 + FIRE_RATE_GAIN_PER_LEVEL * (level - 1))
 
 
 func _show_level_up() -> void:
@@ -182,3 +230,9 @@ func _draw() -> void:
 	draw_rect(Rect2(origin.x - 11.0, turret_top, 22.0, turret_height), color.darkened(0.25))
 	draw_rect(Rect2(origin.x - 11.0, turret_top, 22.0, turret_height), color.darkened(0.7), false, 1.5)
 	draw_circle(Vector2(origin.x, turret_top - 6.0), 8.0, color)
+
+	# One bright pip per tier above the first, banded up the turret, so a
+	# paid-upgrade tower reads as ranked-up independently of its XP height/brightness.
+	for i in tier - 1:
+		var pip_y := origin.y - 8.0 - i * 7.0
+		draw_circle(Vector2(origin.x, pip_y), 2.5, Color(1.0, 0.92, 0.6))

@@ -28,9 +28,14 @@ var is_over: bool = false
 
 ## Elements the player is allowed to build, in the order they were unlocked.
 ## Empty until the start-of-run element pick, which unlocks exactly one. The
-## elemental token economy (DESIGN_DOC.md section 8) will extend this list; it is
-## an array rather than a single value for that reason.
+## elemental tier economy (DESIGN_DOC.md section 8) extends this list.
 var unlocked_elements: Array[int] = []
+
+## Per-element tier, keyed by element. An element is "owned" iff it has an entry
+## here (tier >= 1). The start-of-run pick and every-5-rounds choice both flow
+## through choose_element: picking a new element adds it at tier 1, picking one
+## you already own advances its tier. Tiers keep climbing - there is no cap.
+var element_tiers: Dictionary = {}
 
 
 func new_game(difficulty: Difficulty = Difficulty.EASY) -> void:
@@ -39,21 +44,39 @@ func new_game(difficulty: Difficulty = Difficulty.EASY) -> void:
 	wave_number = 0
 	is_over = false
 	unlocked_elements.clear()
+	element_tiers.clear()
 	gold_changed.emit(gold)
 	lives_changed.emit(lives)
 	wave_changed.emit(wave_number)
 	elements_changed.emit()
 
 
-func unlock_element(element: int) -> void:
-	if unlocked_elements.has(element):
-		return
-	unlocked_elements.append(element)
+## Spend a tier choice on an element: a new element is unlocked at tier 1, an
+## element already owned is advanced to the next tier. Used for both the
+## start-of-run pick and the mid-run choice.
+func choose_element(element: int) -> void:
+	if element_tiers.has(element):
+		element_tiers[element] += 1
+	else:
+		element_tiers[element] = 1
+		unlocked_elements.append(element)
 	elements_changed.emit()
 
 
+## Kept for the start-of-run pick, which unlocks exactly one element at tier 1.
+func unlock_element(element: int) -> void:
+	if element_tiers.has(element):
+		return
+	choose_element(element)
+
+
+## The element's current tier, or 0 if the player doesn't own it.
+func element_tier(element: int) -> int:
+	return element_tiers.get(element, 0)
+
+
 func is_element_unlocked(element: int) -> bool:
-	return unlocked_elements.has(element)
+	return element_tiers.has(element)
 
 
 func add_gold(amount: int) -> void:

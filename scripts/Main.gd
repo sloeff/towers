@@ -51,6 +51,7 @@ var _pending_ghost: Node2D = null
 ## element, the run ending, a phone held in portrait). Each is a flag and
 ## `_update_pause` ORs them, so clearing one never wrongly resumes another.
 var _awaiting_element := true
+var _awaiting_choice := false
 var _run_ended := false
 var _rotate_blocked := false
 ## Orientation the camera was last framed for, so a minor resize (e.g. a mobile
@@ -69,9 +70,12 @@ func _ready() -> void:
 	hud.next_wave_requested.connect(spawner.start_next_wave_early)
 	hud.restart_requested.connect(_restart)
 	hud.tower_sell_requested.connect(_on_tower_sell_requested)
+	hud.tower_upgrade_requested.connect(_on_tower_upgrade_requested)
+	hud.element_choice_made.connect(_on_element_choice_made)
 	hud.tower_detail_closed.connect(_deselect_tower)
 	hud.build_confirmed.connect(_confirm_pending_build)
 	hud.build_cancelled.connect(_clear_pending_build)
+	spawner.wave_cleared.connect(_on_wave_cleared)
 	hud.set_spawner(spawner)
 	# Re-frame the board and re-check orientation whenever the viewport changes
 	# (rotating a phone, resizing a window). The web canvas often reports its
@@ -100,7 +104,47 @@ func _on_starting_element_chosen(element: int) -> void:
 
 ## The tree is paused while any reason to hold the run is active.
 func _update_pause() -> void:
-	get_tree().paused = _awaiting_element or _run_ended or _rotate_blocked
+	get_tree().paused = _awaiting_element or _awaiting_choice or _run_ended or _rotate_blocked
+
+
+## A tier choice is offered after every 5th wave the player survives, but never
+## after the final wave - clearing that is the victory, not a choice.
+func _should_offer_choice(wave: int) -> bool:
+	return wave > 0 and wave % 5 == 0 and wave < GameManager.MAX_WAVES
+
+
+func _on_wave_cleared(wave: int) -> void:
+	if _should_offer_choice(wave):
+		_begin_element_choice()
+
+
+## Pause and show the element panel as a tier choice. Like the start-of-run
+## pick, pausing gives the player unlimited time to decide; only a pick resumes.
+func _begin_element_choice() -> void:
+	_awaiting_choice = true
+	_update_pause()
+	hud.show_element_choice()
+
+
+func _on_element_choice_made(element: int) -> void:
+	GameManager.choose_element(element)
+	_awaiting_choice = false
+	_update_pause()
+
+
+## True when the tower's element has been advanced past the tower's own tier, so
+## paying to upgrade it would actually do something.
+func _can_upgrade_tower(tower: Node2D) -> bool:
+	return GameManager.element_tier(tower.element) > tower.tier
+
+
+func _on_tower_upgrade_requested(tower: Node2D) -> void:
+	if GameManager.is_over or not _can_upgrade_tower(tower):
+		return
+	if not GameManager.spend_gold(tower.upgrade_cost()):
+		hud.flash_message("Not enough gold")
+		return
+	tower.upgrade_tier()
 
 
 ## A touch device held in portrait can't show the landscape-shaped board, so we

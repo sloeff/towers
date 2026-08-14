@@ -39,22 +39,24 @@ through, dynamic A* pathing, wave spawning with scaling composition, the
 start-of-run element pick, click-to-place towers with build validation,
 click-a-tower detail panel with selling, tower experience and automatic
 leveling, elemental damage multipliers, floating gold rewards on a kill,
-the gold/lives economy, game over / victory with restart, and the HTML5
-export deployed to GitHub Pages.
+the gold/lives economy, the elemental **tier** economy (every-5-rounds
+choice to advance an owned element or unlock a new one, plus per-tower
+gold upgrades to the unlocked tier), game over / victory with restart,
+and the HTML5 export deployed to GitHub Pages.
 
-**Not built yet:** elemental tokens and combination towers, potions and
-items, the destructible-rock shortcut trigger, per-difficulty map
-variants, sound, and real art.
+**Not built yet:** combination towers (the tier system they build on is
+now in), potions and items, the destructible-rock shortcut trigger,
+per-difficulty map variants, sound, and real art.
 
 ### Next steps, in order
 
 1. **Playtest and tune.** Every number in [Balance](#12-balance) is a
    first draft. Wave 1–20 pacing, tower costs, enemy HP scaling and the
    new XP curve all need real play.
-2. **Elemental tokens and combination towers** — see
-   [section 8](#8-elemental-progression-and-combination-towers). Needs the
-   gold costs decided first. This is what lights up the detail panel's
-   disabled *Upgrade* button.
+2. **Combination towers** — see
+   [section 8](#8-elemental-progression-and-combination-towers). The tier
+   economy underneath them now exists; combos still need their transform
+   flow, per-combo abilities, and gold costs decided.
 3. **Real art** — replace the `_draw()` placeholder shapes.
 
 ---
@@ -196,12 +198,11 @@ well short of the enemies' ~8.6× HP ramp, so potions and items remain the
 real power source. Range and cost don't change with level. Numbers live
 in `Tower.gd` (curve and gains) and `WaveSpawner.gd` (XP per kill).
 
-> **Two different "levels".** This XP level is not the token-gated
-> "level 1 / level 2" of
-> [combination towers](#8-elemental-progression-and-combination-towers).
-> They're separate axes today; when the token system is built, reconcile
-> the naming. The detail panel's disabled *Upgrade* button belongs to the
-> token system, not to XP leveling.
+> **Two separate axes.** This automatic XP **level** is distinct from the
+> paid **tier** in
+> [Elemental tiers](#elemental-tiers-implemented). The detail panel's
+> *Upgrade* button drives tier; XP level is hands-off. The naming is
+> deliberately split ("Lv" vs "Tier") so they don't blur together.
 
 ### Potions
 
@@ -268,21 +269,41 @@ tower gets designed properly.
 ## 8. Elemental progression and combination towers
 
 At the start of the game the player picks **one element**, and can only
-build towers of that element until more are unlocked. *(This part is
-implemented; everything below it is not.)*
+build towers of that element until more are unlocked. *(The tier economy
+in this section is implemented; the combination towers from
+["Transforming"](#transforming-into-a-combination-tower) onward are not.)*
 
-### Elemental tokens
+### Elemental tiers *(implemented)*
 
-Every 5 rounds survived, the player receives 1 elemental token to spend.
-This is separate from the per-tower experience system in
-[Experience](#experience).
+Every 5 rounds survived (waves 5, 10 and 15 — never after the final wave,
+which is the victory), the game pauses and offers a **choice** over all
+four elements. This is separate from the per-tower experience system in
+[Experience](#experience); "tier" is the choice axis, "level" is the
+automatic XP axis.
 
-A token can go to:
+The choice can go to:
 
-- **An element you already have** → counts toward upgrading that
-  element's towers. 2 tokens on one element unlocks its level 2 upgrade.
-- **A new element** → unlocks that element's basic towers, *and* unlocks
-  combining it with any element you already have.
+- **An element you already own** → advances it to the **next tier**
+  (Tier 1 → Tier 2 → …). One choice = one tier; **tiers keep climbing**,
+  there is no cap.
+- **A new element** → unlocks that element's basic towers at Tier 1 *(and,
+  once built, combining it with any element you already own — the combo
+  half is deferred to the [next feature](#transforming-into-a-combination-tower)).*
+
+Advancing an element's tier only makes the upgrade **available**. Each
+placed tower still starts at Tier 1 and is upgraded one tier at a time for
+gold from its detail panel (see [Cost](#cost)); a tower can be stepped up
+only until it matches its element's tier. A tier multiplies the tower's
+base damage (+50% per tier) and fire rate (+20% per tier) and raises its
+XP level cap (+2 per tier); range and purchase cost are unchanged. Numbers
+live in `Tower.gd` and [Balance](#12-balance).
+
+> **Supersedes the original "2 tokens per tier" model.** The first design
+> had tokens accumulate (2 on an element = its one Tier 2). The built
+> system instead gives one choice per milestone, each advancing a tier,
+> with no Tier-2 ceiling. When combos are built, reconcile the
+> ["both parents at Level 2"](#upgrading-a-combination-tower) rule below
+> with this uncapped tier ladder.
 
 ### Transforming into a combination tower
 
@@ -319,19 +340,25 @@ noticeably stronger to justify it.
 
 ### Cost
 
-Tokens make an upgrade or transform *available*; they don't perform it
-for free. Actually transforming or upgrading a tower still costs gold on
-top of the token investment. **The gold amounts are not decided yet** —
-this is the one thing blocking implementation.
+A tier choice makes an upgrade *available*; it doesn't perform it for
+free. Upgrading a placed tower one tier costs **3× its purchase price** in
+gold (Fire 150, Water 150, Earth 180, Air 165). *(Implemented.)* Combo
+transforms will layer their own gold cost on top — **those amounts are
+still undecided** and block the combo feature.
 
 ### Interaction design
 
 - Element-select screen at game start, choosing 1 of 4. *(Implemented.)*
-- When a token is earned, a menu lets the player choose which element to
-  spend it on — an element they already have, or a new one.
-- Click an already-placed level 1 tower → show *"Transform into [Combo
-  Tower]"* if a valid second element is unlocked, and/or *"Upgrade to
-  Level 2"* if enough tokens are invested in that element. Both cost gold.
+- Every 5 rounds, the same panel reappears as a paused tier choice: pick
+  an owned element to advance its tier, or a new one to unlock it.
+  *(Implemented.)*
+- Click an already-placed tower → its detail panel shows an **Upgrade →
+  Tier N** button (with the gold cost) whenever the element out-tiers the
+  tower, disabled-but-priced when the player can't afford it, and
+  *"Tier N (max)"* when the tower already matches its element's tier.
+  *(Implemented.)*
+- *(Deferred with combos)* the same panel will also offer *"Transform into
+  [Combo Tower]"* when a valid second element is owned.
 
 ---
 
@@ -503,6 +530,25 @@ A level-5 tower sits at ~2.5× its base DPS — a real reward, but far below
 the ~8.6× enemy HP ramp by wave 20. Range and cost are unchanged by
 level, and sell value stays a fraction of build cost.
 
+### Tower tiers
+
+The token/choice axis (see
+[Elemental tiers](#elemental-tiers-implemented)), separate from XP. A
+choice is offered after waves 5, 10 and 15.
+
+| | Value |
+|---|---|
+| Damage per tier | +50% of base, linear |
+| Fire rate per tier | +20% of base, linear |
+| XP level cap per tier | +2 (Tier 1 → 5, Tier 2 → 7, …) |
+| Upgrade cost (per tier-step) | 3× purchase price |
+| Tier cap | none — climbs with each same-element choice |
+
+Tier and XP-level multipliers stack on the base stat, so a Tier-2 tower
+at XP level 3 does `base × 1.50 × 1.36` damage. Numbers live in `Tower.gd`
+(`TIER_DAMAGE_GAIN`, `TIER_FIRE_RATE_GAIN`, `XP_LEVELS_PER_TIER`,
+`UPGRADE_COST_MULT`).
+
 ### Enemies
 
 Enemy HP is **not** a fixed number per rank. There is one base value that
@@ -579,7 +625,7 @@ HUD.tscn
   MessageLabel            transient "Can't build there" / "Not enough gold"
   BuildBar                element buttons (unlocked only) + next-wave button
   ResultPanel             hidden until game over / victory
-  ElementSelectPanel      the start-of-run element pick
+  ElementSelectPanel      the start-of-run pick, reused for the tier choice
   TowerDetailPanel        floating popover for the selected tower
 
 Enemy.tscn / Tower.tscn / Projectile.tscn / FloatingText.tscn
@@ -595,17 +641,17 @@ ravine.
 Clicking a placed tower selects it and opens `TowerDetailPanel`, a
 floating popover that re-anchors to the tower each frame (screen-space,
 via the world canvas transform, so it tracks pan and zoom). Below the
-name it shows a level readout and an XP-to-next-level bar — a placeholder
-pinned at Lv 1 / 0 XP, reading `Tower.experience` against a flat
-`XP_TO_NEXT_LEVEL` until the [Experience](#experience) curve is built.
-Below that: the tower's damage, range, fire rate and lifetime kill count
-(so the player can see which tower is performing best), a **Sell** button
-(refunds 75% of build cost, floored — frees the cell for a rebuild), and
-a disabled **Upgrade** button awaiting the leveling / token economy. `Main` owns the
-selection state and performs the sell; the panel only reads stats and
-emits intent. The vertical layout leaves room for the planned
-active-buffs section and item slots (the modifier system under
-[Items](#items)) without a rebuild.
+name it shows the tower's **Tier** (the paid axis) and its **Lv** XP
+readout with an XP-to-next-level bar. Below that: the tower's damage,
+range, fire rate and lifetime kill count (so the player can see which
+tower is performing best), a **Sell** button (refunds 75% of build cost,
+floored — frees the cell for a rebuild), and an **Upgrade** button that
+enables when the tower's element out-tiers it (see
+[Elemental tiers](#elemental-tiers-implemented)). `Main` owns the
+selection state and performs the sell and the tier upgrade (charging
+gold); the panel only reads stats and emits intent. The vertical layout
+leaves room for the planned active-buffs section and item slots (the
+modifier system under [Items](#items)) without a rebuild.
 
 ### Adding an element
 
