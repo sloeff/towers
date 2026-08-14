@@ -71,6 +71,7 @@ func _ready() -> void:
 	hud.restart_requested.connect(_restart)
 	hud.tower_sell_requested.connect(_on_tower_sell_requested)
 	hud.tower_upgrade_requested.connect(_on_tower_upgrade_requested)
+	hud.tower_transform_requested.connect(_on_tower_transform_requested)
 	hud.element_choice_made.connect(_on_element_choice_made)
 	hud.tower_detail_closed.connect(_deselect_tower)
 	hud.build_confirmed.connect(_confirm_pending_build)
@@ -135,7 +136,7 @@ func _on_element_choice_made(element: int) -> void:
 ## True when the tower's element has been advanced past the tower's own tier, so
 ## paying to upgrade it would actually do something.
 func _can_upgrade_tower(tower: Node2D) -> bool:
-	return GameManager.element_tier(tower.element) > tower.tier
+	return GameManager.available_tier(tower) > tower.tier
 
 
 func _on_tower_upgrade_requested(tower: Node2D) -> void:
@@ -145,6 +146,22 @@ func _on_tower_upgrade_requested(tower: Node2D) -> void:
 		hud.flash_message("Not enough gold")
 		return
 	tower.upgrade_tier()
+
+
+## Transform a placed basic tower into the combo its owned elements allow, for
+## gold. The tower keeps its XP level (transform_into) and drops to combo Tier 1.
+func _on_tower_transform_requested(tower: Node2D) -> void:
+	if GameManager.is_over:
+		return
+	var combo_id: int = GameManager.available_combo_for(tower)
+	if combo_id == -1:
+		return
+	var transform_cost: int = Combos.DATA[combo_id]["transform_cost"]
+	if not GameManager.spend_gold(transform_cost):
+		hud.flash_message("Not enough gold")
+		return
+	tower.transform_into(combo_id)
+	hud.show_tower_detail(tower)  # repopulate the panel title/stats for the combo
 
 
 ## A touch device held in portrait can't show the landscape-shaped board, so we

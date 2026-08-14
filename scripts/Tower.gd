@@ -42,6 +42,17 @@ const XP_LEVELS_PER_TIER := 2
 const UPGRADE_COST_MULT := 3
 
 var tier: int = 1
+
+## Combination-tower identity (DESIGN_DOC section 8). A basic tower is
+## transformed in place into a combo via transform_into(); these stay at their
+## defaults for a basic tower. `element` continues to mean the damage element for
+## the multiplier and projectile, so a combo sets it to its damage_element.
+var is_combo: bool = false
+var combo_id: int = -1
+var parent_elements: Array[int] = []
+## Splash radius on the un-squashed ground plane; 0 = single-target (all basics).
+var aoe_radius: float = 0.0
+
 var level: int = 1
 var experience: int = 0
 ## Lifetime killing blows landed by this tower, shown in the detail panel so the
@@ -100,6 +111,41 @@ func upgrade_tier() -> void:
 	tier += 1
 	_recompute_stats()
 	queue_redraw()
+
+
+## Turn this placed basic tower into a combination tower: swap in the combo's
+## base stats and AoE, keep the earned XP level, and reset the tier to 1 (a combo
+## has its own ladder). The caller checks ownership and charges gold.
+func transform_into(new_combo_id: int) -> void:
+	var data: Dictionary = Combos.DATA[new_combo_id]
+	is_combo = true
+	combo_id = new_combo_id
+	parent_elements.assign(data["parents"])  # untyped Array -> Array[int]
+	element = data["damage_element"]
+	aoe_radius = data["aoe_radius"]
+	base_damage = data["damage"]
+	base_fire_rate = data["fire_rate"]
+	range_radius = data["range"]
+	cost = data["cost"]
+	tier = 1  # fresh combo ladder; level/experience carried
+	_recompute_stats()
+	queue_redraw()
+
+
+## Display name/colour that answer for both a basic tower and a combo, so the
+## detail panel and _draw() never branch on element-vs-combo.
+func display_name() -> String:
+	return Combos.name_of(combo_id) if is_combo else ElementTypes.element_name(element)
+
+
+func display_color() -> Color:
+	return Combos.color_of(combo_id) if is_combo else ElementTypes.color_of(element)
+
+
+## The elements this tower's tier cap is drawn from: its own for a basic tower,
+## both parents for a combo. Used by GameManager.available_tier.
+func source_elements() -> Array[int]:
+	return parent_elements if is_combo else [element]
 
 
 ## XP needed to reach the next level from the current one, or 0 at the cap.
@@ -201,13 +247,15 @@ func _fire_at(target: Node2D) -> void:
 	var projectile := PROJECTILE_SCENE.instantiate()
 	get_parent().add_child(projectile)
 	projectile.global_position = ground_position() + Vector2(0.0, -26.0)
-	projectile.setup(target, damage, element, self)
+	projectile.setup(target, damage, element, self, aoe_radius)
 
 
 func _draw() -> void:
 	# Brighten with each level so a leveled tower reads as stronger at a glance,
 	# on top of the extra height below. Level 1 is unchanged.
-	var color: Color = ElementTypes.color_of(element).lightened((level - 1) * 0.08)
+	# display_color() returns the element colour for a basic tower (unchanged) and
+	# the combo's distinct colour for a combination tower.
+	var color: Color = display_color().lightened((level - 1) * 0.08)
 	# Draw back up by the sort bias baked into this node's position.
 	var origin := Vector2(0.0, -GridManager.RAISED_SORT_BIAS)
 
