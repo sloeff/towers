@@ -22,7 +22,7 @@ any of its available combos.
 |---|---|---|---|
 | Fire + Earth | **Lava** | Fire | Burn — direct hit plus a damage-over-time that ticks for 3 s; re-hitting refreshes it |
 | Fire + Water | **Steam** | Water | Wide AoE — projectile splashes over a large radius; pure area damage, no rider effect (wider and weaker than Fire Breath, Water-typed) |
-| Earth + Air | **Meteor** | Earth | Stun — very slow fire rate, one heavy hit with a small splash, stuns the primary target 1 s |
+| Earth + Air | **Meteor** | Earth | Stun — slow fire rate, a burst with a tight splash, stuns the primary target 0.75 s |
 | Earth + Water | **Quicksand** | Earth | Slow aura — no projectile; every enemy in range is continuously slowed 40 % and takes a small damage tick |
 | Air + Water | **Hail** | Water | Small AoE + light slow — small splash damage, hits slow 25 % for 1.5 s |
 
@@ -40,7 +40,7 @@ tier cap is the lower of the two parents' tiers. All stats live in
 |---|---|---|---|---|---|---|
 | Lava | 14 | 1.0/s | 160 | 0 | 140 / 110g | burn 8 dmg/s for 3 s (Fire-typed) |
 | Steam | 12 | 1.1/s | 190 | 110 | 140 / 110g | wide splash, no rider (vs Fire Breath's tighter r85) |
-| Meteor | 55 | 0.35/s | 220 | 60 | 160 / 120g | stun 1 s on primary target |
+| Meteor | 30 | 0.4/s | 220 | 45 | 160 / 120g | stun 0.75 s on primary target |
 | Quicksand | — | aura | 150 | (= range) | 150 / 110g | aura 6 dmg/s + slow ×0.6, all in range |
 | Hail | 10 | 1.4/s | 200 | 55 | 135 / 100g | slow ×0.75 for 1.5 s |
 
@@ -49,8 +49,9 @@ tier cap is the lower of the two parents' tiers. All stats live in
 - **Transform** is the gold to convert a placed basic tower; it carries its XP
   level and resets to combo Tier 1.
 - Effective DPS lands around 2–2.3× a parent once the ability is counted
-  (Lava 14 direct + 8 burn ≈ 22; Meteor 55 × 0.35 ≈ 19 plus stun uptime;
-  Quicksand trades direct damage for area control). Tune from playtesting.
+  (Lava 14 direct + 8 burn ≈ 22; Meteor 30 × 0.4 = 12 DPS but ~30% stun uptime
+  on a tough single target - control over raw damage, deliberately not a group
+  nuke; Quicksand trades direct damage for area control). Tune from playtesting.
 - Each combo needs a distinct `color` in `Combos.DATA` so it reads apart from
   Fire Breath's orange-gold and from its parents.
 

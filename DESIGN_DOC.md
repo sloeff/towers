@@ -334,7 +334,7 @@ mechanic (DESIGN_DOC-original names in parentheses where they differ):
 | Fire + Air | Fire Breath | Fire-typed AoE splash | **Built** |
 | Fire + Earth | Lava | Burn — direct hit + Fire-typed damage-over-time (3 s, refreshes on re-hit) | **Built** |
 | Fire + Water | Steam | Wide Water-typed pure AoE (larger, weaker splash than Fire Breath) | **Built** |
-| Earth + Air | Meteor | Heavy single hit + small splash; stuns the primary target 1 s | **Built** |
+| Earth + Air | Meteor | Slow-firing burst + tight splash; stuns the primary target 0.75 s (control tower, not a group nuke) | **Built** |
 | Earth + Water | Quicksand | Slow aura — no projectile; continuously slows and lightly damages every enemy in range | **Built** |
 | Air + Water | Hail | Small splash + light slow (×0.75, 1.5 s) on everything hit | **Built** |
 
@@ -592,7 +592,7 @@ tiers).
 | Fire Breath | Fire + Air | 130 / 100g | 18 | 1.3/s | 200 | 85 | Fire | AoE splash |
 | Lava | Fire + Earth | 140 / 110g | 14 | 1.0/s | 160 | — | Fire | burn 8 dmg/s for 3 s |
 | Steam | Fire + Water | 140 / 110g | 12 | 1.1/s | 190 | 110 | Water | wide pure AoE, no rider |
-| Meteor | Earth + Air | 160 / 120g | 55 | 0.35/s | 220 | 60 | Earth | stun primary 1 s |
+| Meteor | Earth + Air | 160 / 120g | 30 | 0.4/s | 220 | 45 | Earth | stun primary 0.75 s |
 | Quicksand | Earth + Water | 150 / 110g | 6/s aura | — (aura) | 150 | — | Earth | slow ×0.6 + tick, all in range |
 | Hail | Air + Water | 135 / 100g | 10 | 1.4/s | 200 | 55 | Water | slow ×0.75 for 1.5 s |
 

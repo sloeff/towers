@@ -61,20 +61,23 @@ const DATA := {
 		"cost": 140,
 		"transform_cost": 110,
 	},
-	# Earth + Air. Slow, heavy single hit with a small splash; stuns the primary
-	# target for 1s (stun_primary_only, so the splashed enemies aren't frozen).
+	# Earth + Air. A slow-firing control tower: a solid burst with a tight splash
+	# that stuns the primary target (stun_primary_only, so splashed enemies aren't
+	# frozen). Its value is the ~30% stun uptime on a tough single target, not raw
+	# damage - the burst was cut from a group-wiping 55 so it no longer one-shots
+	# whole packs.
 	Combo.METEOR: {
 		"name": "Meteor",
 		"parents": [ElementTypes.Element.EARTH, ElementTypes.Element.AIR],
 		"damage_element": ElementTypes.Element.EARTH,
 		"color": Color(0.52, 0.40, 0.28),  # scorched rock brown
-		"damage": 55.0,
-		"fire_rate": 0.35,
+		"damage": 30.0,
+		"fire_rate": 0.4,
 		"range": 220.0,
-		"aoe_radius": 60.0,
+		"aoe_radius": 45.0,
 		"cost": 160,
 		"transform_cost": 120,
-		"stun_duration": 1.0,
+		"stun_duration": 0.75,
 		"stun_primary_only": true,
 	},
 	# Earth + Water. Aura: no projectile. Every enemy in range is continuously
