@@ -148,13 +148,13 @@ func _on_tower_upgrade_requested(tower: Node2D) -> void:
 	tower.upgrade_tier()
 
 
-## Transform a placed basic tower into the combo its owned elements allow, for
-## gold. The tower keeps its XP level (transform_into) and drops to combo Tier 1.
-func _on_tower_transform_requested(tower: Node2D) -> void:
+## Transform a placed basic tower into the chosen combo (the panel offers one
+## button per available combo when several partners are owned), for gold. The
+## tower keeps its XP level (transform_into) and drops to combo Tier 1.
+func _on_tower_transform_requested(tower: Node2D, combo_id: int) -> void:
 	if GameManager.is_over:
 		return
-	var combo_id: int = GameManager.available_combo_for(tower)
-	if combo_id == -1:
+	if not combo_id in GameManager.available_combos_for(tower):
 		return
 	var transform_cost: int = Combos.DATA[combo_id]["transform_cost"]
 	if not GameManager.spend_gold(transform_cost):

@@ -88,16 +88,19 @@ func available_tier(tower) -> int:
 	return cap
 
 
-## A combo this basic tower can transform into right now (its partner element is
-## owned), or -1. Combos themselves never re-transform in this slice.
-func available_combo_for(tower) -> int:
+## Every combo this basic tower can transform into right now - one per owned
+## partner element (a Fire tower whose owner also has Air, Earth and Water can
+## form Fire Breath, Lava or Steam). Empty for a combo (they never re-transform).
+func available_combos_for(tower) -> Array[int]:
+	var out: Array[int] = []
 	if tower.is_combo:
-		return -1
+		return out
 	for combo_id in Combos.combos_including(tower.element):
 		for parent in Combos.DATA[combo_id]["parents"]:
 			if parent != tower.element and is_element_unlocked(parent):
-				return combo_id
-	return -1
+				out.append(combo_id)
+				break
+	return out
 
 
 func add_gold(amount: int) -> void:

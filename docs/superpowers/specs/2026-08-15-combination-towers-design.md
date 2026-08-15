@@ -21,7 +21,7 @@ any of its available combos.
 | Pair | Tower | Damage element | Unique ability |
 |---|---|---|---|
 | Fire + Earth | **Lava** | Fire | Burn — direct hit plus a damage-over-time that ticks for 3 s; re-hitting refreshes it |
-| Fire + Water | **Steam** | Water | AoE slow — projectile splashes; every enemy in the radius is slowed 50 % for 3 s |
+| Fire + Water | **Steam** | Water | Wide AoE — projectile splashes over a large radius; pure area damage, no rider effect (wider and weaker than Fire Breath, Water-typed) |
 | Earth + Air | **Meteor** | Earth | Stun — very slow fire rate, one heavy hit with a small splash, stuns the primary target 1 s |
 | Earth + Water | **Quicksand** | Earth | Slow aura — no projectile; every enemy in range is continuously slowed 40 % and takes a small damage tick |
 | Air + Water | **Hail** | Water | Small AoE + light slow — small splash damage, hits slow 25 % for 1.5 s |
@@ -39,7 +39,7 @@ tier cap is the lower of the two parents' tiers. All stats live in
 | Combo | Damage | Fire rate | Range | AoE | Cost / Transform | Ability params |
 |---|---|---|---|---|---|---|
 | Lava | 14 | 1.0/s | 160 | 0 | 140 / 110g | burn 8 dmg/s for 3 s (Fire-typed) |
-| Steam | 12 | 1.1/s | 190 | 90 | 140 / 110g | slow ×0.5 for 3 s |
+| Steam | 12 | 1.1/s | 190 | 110 | 140 / 110g | wide splash, no rider (vs Fire Breath's tighter r85) |
 | Meteor | 55 | 0.35/s | 220 | 60 | 160 / 120g | stun 1 s on primary target |
 | Quicksand | — | aura | 150 | (= range) | 150 / 110g | aura 6 dmg/s + slow ×0.6, all in range |
 | Hail | 10 | 1.4/s | 200 | 55 | 135 / 100g | slow ×0.75 for 1.5 s |
@@ -142,7 +142,7 @@ Fire Breath's entry needs no change:
 
 ```
 firing_mode: "projectile" | "aura"   # default "projectile"
-slow_factor, slow_duration            # on-hit slow (Steam, Hail)
+slow_factor, slow_duration            # on-hit slow (Hail)
 stun_duration, stun_primary_only      # on-hit stun (Meteor)
 dot_dps, dot_duration                 # burn (Lava)
 aura_dps                              # aura tick damage (Quicksand)

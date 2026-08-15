@@ -10,7 +10,7 @@ signal next_wave_requested
 signal restart_requested
 signal tower_sell_requested(tower: Node2D)
 signal tower_upgrade_requested(tower: Node2D)
-signal tower_transform_requested(tower: Node2D)
+signal tower_transform_requested(tower: Node2D, combo_id: int)
 signal tower_detail_closed
 signal build_confirmed
 signal build_cancelled
@@ -84,7 +84,7 @@ func _ready() -> void:
 	element_select.element_chosen.connect(_on_starting_element_chosen)
 	tower_detail.sell_pressed.connect(func(tower: Node2D) -> void: tower_sell_requested.emit(tower))
 	tower_detail.upgrade_pressed.connect(func(tower: Node2D) -> void: tower_upgrade_requested.emit(tower))
-	tower_detail.transform_pressed.connect(func(tower: Node2D) -> void: tower_transform_requested.emit(tower))
+	tower_detail.transform_pressed.connect(func(tower: Node2D, combo_id: int) -> void: tower_transform_requested.emit(tower, combo_id))
 	tower_detail.close_pressed.connect(func() -> void: tower_detail_closed.emit())
 	build_prompt.confirmed.connect(func() -> void: build_confirmed.emit())
 	build_prompt.cancelled.connect(func() -> void: build_cancelled.emit())

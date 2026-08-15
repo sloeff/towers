@@ -10,7 +10,7 @@ extends PanelContainer
 
 signal sell_pressed(tower: Node2D)
 signal upgrade_pressed(tower: Node2D)
-signal transform_pressed(tower: Node2D)
+signal transform_pressed(tower: Node2D, combo_id: int)
 signal close_pressed
 
 ## Keep the whole panel this far inside the viewport edges.
@@ -32,7 +32,12 @@ var _damage: Label
 var _range: Label
 var _fire_rate: Label
 var _kills: Label
-var _transform_button: Button
+## One Transform button per available combo, rebuilt only when the set of
+## available combos changes (a tower can have several owned partners). Keyed by
+## combo_id so prices refresh each frame without recreating buttons.
+var _transform_box: VBoxContainer
+var _transform_buttons: Dictionary = {}
+var _transform_combo_ids: Array[int] = []
 var _upgrade_button: Button
 var _sell_button: Button
 
@@ -94,11 +99,11 @@ func _build_ui() -> void:
 	_build_item_slots(box)
 
 	# Transform is a promoted, distinct action (a placed basic tower becoming its
-	# combo), so it gets its own full-width row above Upgrade/Sell.
-	_transform_button = Button.new()
-	_transform_button.focus_mode = Control.FOCUS_NONE
-	_transform_button.pressed.connect(_on_transform_pressed)
-	box.add_child(_transform_button)
+	# combo). Each available combo gets its own full-width button, stacked in this
+	# box above Upgrade/Sell and rebuilt on demand in _refresh_transform_buttons.
+	_transform_box = VBoxContainer.new()
+	_transform_box.add_theme_constant_override("separation", 6)
+	box.add_child(_transform_box)
 
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 8)
@@ -251,11 +256,18 @@ func show_for(tower: Node2D) -> void:
 func _refresh_dynamic() -> void:
 	_tier.text = "Tier %d" % _tower.tier
 	_level.text = "Lv %d" % _tower.level
-	_damage.text = "Damage: %.1f" % _tower.damage
-	_fire_rate.text = "Fire rate: %.2f/s" % _tower.fire_rate
+	# An aura tower (Quicksand) has no per-shot damage or fire rate; it deals a
+	# continuous tick, so it reads its aura's damage-per-second instead of 0.0.
+	if _tower.is_combo and Combos.DATA[_tower.combo_id].get("firing_mode", "projectile") == "aura":
+		var aura_dps: float = Combos.DATA[_tower.combo_id].get("aura_dps", 0.0)
+		_damage.text = "Damage: %.1f/s (aura)" % aura_dps
+		_fire_rate.text = "Slow: %d%%" % int(round((1.0 - Combos.DATA[_tower.combo_id].get("slow_factor", 1.0)) * 100.0))
+	else:
+		_damage.text = "Damage: %.1f" % _tower.damage
+		_fire_rate.text = "Fire rate: %.2f/s" % _tower.fire_rate
 	_kills.text = "Kills: %d" % _tower.kills
 	_refresh_upgrade_button()
-	_refresh_transform_button()
+	_refresh_transform_buttons()
 	if _tower.is_at_max_level():
 		_xp_bar.max_value = 1.0
 		_xp_bar.value = 1.0
@@ -285,20 +297,35 @@ func _refresh_upgrade_button() -> void:
 		_upgrade_button.tooltip_text = "Advance this element's tier to upgrade further"
 
 
-## Offer "Transform → [Combo]" only for a basic tower whose partner element is
-## owned; priced-but-disabled when the player can't afford it; hidden otherwise
-## (including for combos, which don't re-transform in this slice).
-func _refresh_transform_button() -> void:
-	var combo_id: int = GameManager.available_combo_for(_tower)
-	if combo_id == -1:
-		_transform_button.visible = false
-		return
-	_transform_button.visible = true
-	var transform_cost: int = Combos.DATA[combo_id]["transform_cost"]
-	var affordable: bool = GameManager.gold >= transform_cost
-	_transform_button.text = "Transform → %s  −%dg" % [Combos.name_of(combo_id), transform_cost]
-	_transform_button.disabled = not affordable
-	_transform_button.tooltip_text = "" if affordable else "Not enough gold"
+## Offer a "Transform → [Combo]" button for each combo a basic tower can form
+## (one per owned partner element); each is priced-but-disabled when the player
+## can't afford it. Nothing shows for a combo, which never re-transforms. The
+## buttons are rebuilt only when the available set changes; prices refresh here
+## every frame.
+func _refresh_transform_buttons() -> void:
+	var combos: Array[int] = GameManager.available_combos_for(_tower)
+	if combos != _transform_combo_ids:
+		_rebuild_transform_buttons(combos)
+	for combo_id in _transform_combo_ids:
+		var transform_cost: int = Combos.DATA[combo_id]["transform_cost"]
+		var affordable: bool = GameManager.gold >= transform_cost
+		var button: Button = _transform_buttons[combo_id]
+		button.text = "Transform → %s  −%dg" % [Combos.name_of(combo_id), transform_cost]
+		button.disabled = not affordable
+		button.tooltip_text = "" if affordable else "Not enough gold"
+
+
+func _rebuild_transform_buttons(combos: Array[int]) -> void:
+	for child in _transform_box.get_children():
+		child.queue_free()
+	_transform_buttons.clear()
+	_transform_combo_ids = combos.duplicate()
+	for combo_id in combos:
+		var button := Button.new()
+		button.focus_mode = Control.FOCUS_NONE
+		button.pressed.connect(_on_transform_pressed.bind(combo_id))
+		_transform_box.add_child(button)
+		_transform_buttons[combo_id] = button
 
 
 func hide_panel() -> void:
@@ -316,9 +343,9 @@ func _on_upgrade_pressed() -> void:
 		upgrade_pressed.emit(_tower)
 
 
-func _on_transform_pressed() -> void:
+func _on_transform_pressed(combo_id: int) -> void:
 	if is_instance_valid(_tower):
-		transform_pressed.emit(_tower)
+		transform_pressed.emit(_tower, combo_id)
 
 
 func _process(_delta: float) -> void:

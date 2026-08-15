@@ -17,6 +17,14 @@ design, balance numbers, map layout and implementation notes.
 
 ## Dev journal
 
+- 2026-08-15 — Added the **remaining five combination towers**, one per elemental
+  pair, each with a distinct mechanic: **Lava** (Fire+Earth, burn/damage-over-time),
+  **Steam** (Fire+Water, wide pure AoE), **Meteor** (Earth+Air, heavy hit + 1 s stun),
+  **Quicksand** (Earth+Water, projectile-less slow aura), and **Hail** (Air+Water,
+  small splash + light slow). Behind them: three reusable enemy status primitives
+  (slow — a stun is a factor-0 slow, damage-over-time, and an aura firing mode) and a
+  transform panel that now offers **one button per available combo** when a tower has
+  several owned partners.
 - 2026-08-14 — Added the first **combination tower**: once you own two elements, a
   placed basic tower can **Transform** (from its detail panel, for gold) into their
   combo. Shipped Fire + Air → **Fire Breath**, which deals Fire-typed

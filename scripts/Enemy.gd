@@ -41,6 +41,16 @@ var health: float
 ## they shoot whatever is closest to leaking.
 var path_progress: float = 0.0
 
+## Status effects applied by combination towers (DESIGN_DOC section 8).
+## Slows (a stun is a slow with factor 0) and damage-over-time both live in
+## small lists ticked in _process. Each entry is keyed by its `source` tower so
+## a repeated application (an aura re-applying every frame, or a re-hit)
+## refreshes the existing entry instead of piling up duplicates.
+##   _slows: { factor: float, time_left: float, source }
+##   _dots:  { dps: float, time_left: float, element: int, source }
+var _slows: Array[Dictionary] = []
+var _dots: Array[Dictionary] = []
+
 ## Set the instant this enemy is killed or leaks, so it can be removed only
 ## once. `queue_free` is deferred, so without this a second hit or a goal-reach
 ## in the same frame would fire `died`/`reached_goal` again and double-count.
@@ -98,11 +108,16 @@ func _on_grid_changed() -> void:
 
 
 func _process(delta: float) -> void:
+	_tick_effects(delta)
+	if _removed:
+		return  # a burn tick may have killed this enemy
 	if _index >= _path.size():
 		return
 	var target := GridManager.cell_to_surface(_path[_index])
 	var to_target := target - global_position
-	var step := speed * delta
+	# Slows (and stuns, which are factor-0 slows) scale movement; at factor 0 the
+	# step is 0 and the unit is frozen in place.
+	var step := speed * current_slow_factor() * delta
 	if to_target.length() <= step:
 		global_position = target
 		_index += 1
@@ -111,6 +126,59 @@ func _process(delta: float) -> void:
 			_on_reached_goal()
 	else:
 		global_position += to_target.normalized() * step
+
+
+## Apply (or refresh) a slow. `factor` multiplies speed (0 = a full stun); the
+## effective speed uses the strongest active slow, so slows don't multiply
+## together. Keyed by `source` so an aura re-applying every frame or a repeat
+## hit refreshes one entry instead of stacking many.
+func apply_slow(factor: float, duration: float, source: Node2D = null) -> void:
+	for s in _slows:
+		if source != null and s["source"] == source:
+			s["factor"] = factor
+			s["time_left"] = duration
+			return
+	_slows.append({"factor": factor, "time_left": duration, "source": source})
+
+
+## Apply (or refresh) a damage-over-time. Ticks through take_damage each frame,
+## so the elemental multiplier and the killing-blow credit both apply. Keyed by
+## `source` so a re-hit refreshes rather than stacking a second burn.
+func apply_dot(dps: float, duration: float, dot_element: int, source: Node2D = null) -> void:
+	for d in _dots:
+		if source != null and d["source"] == source:
+			d["dps"] = dps
+			d["time_left"] = duration
+			d["element"] = dot_element
+			return
+	_dots.append({"dps": dps, "time_left": duration, "element": dot_element, "source": source})
+
+
+## Strongest (lowest) factor among active slows, or 1.0 when unslowed.
+func current_slow_factor() -> float:
+	var factor := 1.0
+	for s in _slows:
+		factor = minf(factor, s["factor"])
+	return factor
+
+
+## Tick slows and burns each frame: expire finished slows, and apply each burn's
+## damage for this frame. A burn tick can land the killing blow (crediting its
+## source tower), so this bails the moment the enemy is removed.
+func _tick_effects(delta: float) -> void:
+	for i in range(_slows.size() - 1, -1, -1):
+		_slows[i]["time_left"] -= delta
+		if _slows[i]["time_left"] <= 0.0:
+			_slows.remove_at(i)
+	for i in range(_dots.size() - 1, -1, -1):
+		var d := _dots[i]
+		var source: Node2D = d["source"] if is_instance_valid(d["source"]) else null
+		take_damage(d["dps"] * delta, d["element"], source)
+		if _removed:
+			return
+		d["time_left"] -= delta
+		if d["time_left"] <= 0.0:
+			_dots.remove_at(i)
 
 
 ## `source` is the tower that fired the shot, credited with XP if this is the
