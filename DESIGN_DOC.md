@@ -41,22 +41,25 @@ click-a-tower detail panel with selling, tower experience and automatic
 leveling, elemental damage multipliers, floating gold rewards on a kill,
 the gold/lives economy, the elemental **tier** economy (every-5-rounds
 choice to advance an owned element or unlock a new one, plus per-tower
-gold upgrades to the unlocked tier), game over / victory with restart,
-and the HTML5 export deployed to GitHub Pages.
+gold upgrades to the unlocked tier), all six **combination towers** (one per
+elemental pair, each with a distinct ability — see
+[section 8](#8-elemental-progression-and-combination-towers)) with the status
+primitives behind them (slow, stun, damage-over-time, aura firing mode), game
+over / victory with restart, and the HTML5 export deployed to GitHub Pages.
 
-**Not built yet:** combination towers (the tier system they build on is
-now in), potions and items, the destructible-rock shortcut trigger,
-per-difficulty map variants, sound, and real art.
+**Not built yet:** the second combo tower of each two-result pair (and the
+build-time picker between them), potions and items, the destructible-rock
+shortcut trigger, per-difficulty map variants, sound, and real art.
 
 ### Next steps, in order
 
 1. **Playtest and tune.** Every number in [Balance](#12-balance) is a
    first draft. Wave 1–20 pacing, tower costs, enemy HP scaling and the
    new XP curve all need real play.
-2. **Combination towers** — see
-   [section 8](#8-elemental-progression-and-combination-towers). The tier
-   economy underneath them now exists; combos still need their transform
-   flow, per-combo abilities, and gold costs decided.
+2. **Playtest the combos** — all six are in with first-draft numbers and
+   abilities (see [section 8](#8-elemental-progression-and-combination-towers)).
+   Their damage, ability magnitudes and transform costs need real play, and the
+   two-result pairs still want their second tower + picker.
 3. **Real art** — replace the `_draw()` placeholder shapes.
 
 ---
@@ -323,22 +326,27 @@ elemental multiplier still applies.
 > deliberate power spike: Fire Breath hits ~2.3× a parent's single-target DPS
 > *and* splashes. See [Balance](#12-balance).
 
-| Pair | Result(s) | Player choice? | Status |
+All six pairs now ship **one** combo tower each, every one with a distinct
+mechanic (DESIGN_DOC-original names in parentheses where they differ):
+
+| Pair | Tower | Unique ability | Status |
 |---|---|---|---|
-| Fire + Air | Fire Breath | No — single result | **Built** (Fire-typed AoE) |
-| Fire + Earth | Lava, Fire Rocks | Yes — two distinct towers, unique ability each | Not built |
-| Fire + Water | Hot Water / Steam | No — single result | Not built |
-| Earth + Air | Meteor, Pull Tower | Yes — two distinct towers, unique ability each | Not built |
-| Earth + Water | Mud Flow, Quick Sand | Yes — two distinct towers, unique ability each | Not built |
-| Air + Water | Water Tornado, Hail | Yes — two distinct towers, unique ability each | Not built |
+| Fire + Air | Fire Breath | Fire-typed AoE splash | **Built** |
+| Fire + Earth | Lava | Burn — direct hit + Fire-typed damage-over-time (3 s, refreshes on re-hit) | **Built** |
+| Fire + Water | Steam | Wide Water-typed pure AoE (larger, weaker splash than Fire Breath) | **Built** |
+| Earth + Air | Meteor | Slow-firing burst + tight splash; stuns the primary target 0.75 s (control tower, not a group nuke) | **Built** |
+| Earth + Water | Quicksand | Slow aura — no projectile; continuously slows and lightly damages every enemy in range | **Built** |
+| Air + Water | Hail | Small splash + light slow (×0.75, 1.5 s) on everything hit | **Built** |
 
-Pull Tower pulls air units to the ground so they become ground units.
+The original two-result pairs (Lava/Fire Rocks, Meteor/Pull Tower,
+Mud Flow/Quick Sand, Water Tornado/Hail) are deferred to one tower per pair
+for now; the second tower of each and the build-time picker between them
+remain future work. Pull Tower (would pull air units to the ground so they
+become ground units) is one of those deferred second towers.
 
-Where a pair lists two towers, both exist as separate combo towers with
-their own unique ability — the player picks which one to build when
-transforming, rather than it being resolved automatically. *(The transform
-action currently resolves a single available combo; the two-result pairs
-need a picker UI, not built yet.)*
+Because a tower now has up to three possible transforms (one per owned
+partner element), the detail panel offers **one Transform button per available
+combo** rather than resolving a single one automatically.
 
 No 3- or 4-element combinations are planned. There's no limit on how many
 combo *pairs* can be active at once: if a player unlocks 3+ elements over a
@@ -579,15 +587,29 @@ combo is a deliberate power spike over either parent. Stats live in
 ladders as basic towers (a combo's tier cap is the lower of its two parents'
 tiers).
 
-| Combo | Parents | Cost / Transform | Damage | Fire rate | Single-target DPS | Range | AoE radius | Type |
+| Combo | Parents | Cost / Transform | Damage | Fire rate | Range | AoE | Type | Ability |
 |---|---|---|---|---|---|---|---|---|
-| Fire Breath | Fire + Air | 130 / 100g | 18 | 1.3/s | 23.4 (~2.3× a parent) | 200 | 85 | Fire |
+| Fire Breath | Fire + Air | 130 / 100g | 18 | 1.3/s | 200 | 85 | Fire | AoE splash |
+| Lava | Fire + Earth | 140 / 110g | 14 | 1.0/s | 160 | — | Fire | burn 8 dmg/s for 3 s |
+| Steam | Fire + Water | 140 / 110g | 12 | 1.1/s | 190 | 110 | Water | wide pure AoE, no rider |
+| Meteor | Earth + Air | 160 / 120g | 30 | 0.4/s | 220 | 45 | Earth | stun primary 0.75 s |
+| Quicksand | Earth + Water | 150 / 110g | 6/s aura | — (aura) | 150 | — | Earth | slow ×0.6 + tick, all in range |
+| Hail | Air + Water | 135 / 100g | 10 | 1.4/s | 200 | 55 | Water | slow ×0.75 for 1.5 s |
 
-Fire Breath deals full damage to every enemy within its AoE radius, each
-taking its own elemental multiplier (Fire-typed: 125% vs Water). `Cost`
-feeds the combo-tier upgrade (3× → 390g) and sell value (75% → 97g);
-`Transform` is the gold to convert a placed basic tower, which carries its
-XP level and resets to combo Tier 1.
+Fire Breath, Steam and Hail deal full damage to every enemy within their AoE
+radius, each taking its own elemental multiplier (e.g. Fire Breath Fire-typed:
+125% vs Water). Meteor's splash damages all in radius but stuns only the
+primary target. Lava's burn is a Fire-typed damage-over-time that refreshes on
+re-hit rather than stacking. Quicksand has no projectile: every frame it slows
+and lightly damages every enemy in range. For each combo, `Cost` feeds the
+combo-tier upgrade (3×) and sell value (75%); `Transform` is the gold to
+convert a placed basic tower, which carries its XP level and resets to combo
+Tier 1. Numbers are first-draft — tune from playtesting.
+
+**Status primitives.** Slow (a stun is a factor-0 slow), damage-over-time, and
+the aura firing mode live on `Enemy` (`apply_slow` / `apply_dot`) and `Tower`,
+reused across combos. Multiple slows take the strongest factor, they don't
+multiply.
 
 ### Enemies
 
@@ -797,10 +819,10 @@ Check here before inventing a rule.
 
 - **Does the kill reward scale per round?** The design says yes, the
   build pays flat. See the note under [Gold](#gold).
-- **Combination tower gold costs.** The interaction and token model are
-  designed; the gold amounts for transforms and upgrades are not. This is
-  the only thing blocking implementation of
-  [section 8](#8-elemental-progression-and-combination-towers).
+- **Combination tower gold costs.** First-draft transform and upgrade costs
+  are now set for all six combos (see [Balance](#combination-towers)) and the
+  combos are built. The amounts are untuned — playtest whether a transform is
+  priced as the deliberate power spike it's meant to be.
 - **Element pros and cons.** The element-select screen reserves a block
   per card for them (`ElementTypes.DATA[...]["pros"]` / `["cons"]`, one
   bullet per entry). Both are empty because the strengths and weaknesses

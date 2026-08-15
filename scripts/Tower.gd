@@ -123,7 +123,11 @@ func transform_into(new_combo_id: int) -> void:
 	parent_elements.assign(data["parents"])  # untyped Array -> Array[int]
 	element = data["damage_element"]
 	aoe_radius = data["aoe_radius"]
-	base_damage = data["damage"]
+	# An aura combo's per-shot "damage" is 0; its real output is aura_dps. Feed
+	# that in as the base so it rides the tier and XP ladders like every other
+	# stat (a tiered/leveled Quicksand actually hits harder). Slow factor is left
+	# flat by design - only the damage scales.
+	base_damage = data.get("aura_dps", 0.0) if data.get("firing_mode", "projectile") == "aura" else data["damage"]
 	base_fire_rate = data["fire_rate"]
 	range_radius = data["range"]
 	cost = data["cost"]
@@ -216,6 +220,9 @@ func configure(tower_element: int) -> void:
 
 
 func _process(delta: float) -> void:
+	if _is_aura():
+		_process_aura(delta)
+		return
 	_fire_cooldown -= delta
 	if _fire_cooldown > 0.0:
 		return
@@ -224,6 +231,30 @@ func _process(delta: float) -> void:
 		return
 	_fire_at(target)
 	_fire_cooldown = 1.0 / fire_rate
+
+
+## True for a combo whose firing_mode is "aura" (Quicksand): no projectile, it
+## applies its effect to every enemy in range each frame instead.
+func _is_aura() -> bool:
+	return is_combo and Combos.DATA[combo_id].get("firing_mode", "projectile") == "aura"
+
+
+## How long an aura's slow lingers after an enemy leaves the field: it's
+## re-applied (refreshed) every frame while inside, so this is the tail once out.
+const AURA_SLOW_LINGER := 0.3
+
+
+## Aura tick: slow every enemy in range and deal a small slice of damage, each
+## frame. Damage rides the normal take_damage path (elemental multiplier and
+## killing-blow credit included).
+func _process_aura(delta: float) -> void:
+	var slow_factor: float = Combos.DATA[combo_id].get("slow_factor", 1.0)
+	# `damage` is aura_dps scaled by tier and XP level (set in transform_into /
+	# _recompute_stats), so upgrading Quicksand genuinely strengthens its field.
+	for enemy in _enemies_in_range():
+		enemy.apply_slow(slow_factor, AURA_SLOW_LINGER, self)
+		if damage > 0.0:
+			enemy.take_damage(damage * delta, element, self)
 
 
 func _find_target() -> Node2D:
@@ -243,11 +274,36 @@ func _find_target() -> Node2D:
 	return best
 
 
+## Every enemy within range on the un-squashed ground plane (aura targeting).
+func _enemies_in_range() -> Array:
+	var hit: Array = []
+	var origin := ground_position()
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		var offset: Vector2 = enemy.ground_position() - origin
+		if Vector2(offset.x, offset.y * 2.0).length() <= range_radius:
+			hit.append(enemy)
+	return hit
+
+
+## The on-hit status effects this tower's projectile carries, pulled from the
+## combo's data (empty for a basic tower). See Combos.DATA for the keys.
+func _combo_effects() -> Dictionary:
+	if not is_combo:
+		return {}
+	var data: Dictionary = Combos.DATA[combo_id]
+	var effects: Dictionary = {}
+	for key in ["slow_factor", "slow_duration", "dot_dps", "dot_duration",
+			"stun_duration", "stun_primary_only"]:
+		if data.has(key):
+			effects[key] = data[key]
+	return effects
+
+
 func _fire_at(target: Node2D) -> void:
 	var projectile := PROJECTILE_SCENE.instantiate()
 	get_parent().add_child(projectile)
 	projectile.global_position = ground_position() + Vector2(0.0, -26.0)
-	projectile.setup(target, damage, element, self, aoe_radius)
+	projectile.setup(target, damage, element, self, aoe_radius, _combo_effects())
 
 
 func _draw() -> void:
@@ -259,9 +315,12 @@ func _draw() -> void:
 	# Draw back up by the sort bias baked into this node's position.
 	var origin := Vector2(0.0, -GridManager.RAISED_SORT_BIAS)
 
-	if show_range:
+	# An aura tower (Quicksand) always shows its field so the slow zone reads even
+	# when unselected; other towers show their range only while selected.
+	if show_range or _is_aura():
+		var fill_alpha := 0.12 if show_range else 0.08
 		draw_set_transform(origin, 0.0, Vector2(1.0, 0.5))
-		draw_circle(Vector2.ZERO, range_radius, Color(color, 0.12))
+		draw_circle(Vector2.ZERO, range_radius, Color(color, fill_alpha))
 		draw_arc(Vector2.ZERO, range_radius, 0.0, TAU, 48, Color(color, 0.5), 1.5)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 

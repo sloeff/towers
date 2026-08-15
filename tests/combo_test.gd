@@ -24,7 +24,9 @@ func _about(a: float, b: float, eps := 0.01) -> bool:
 func _ready() -> void:
 	_test_registry()
 	_test_transform()
+	_test_aura_scaling()
 	_test_splash_targets()
+	_test_status_effects()
 	_test_available_queries()
 	await _test_transform_flow()
 
@@ -41,8 +43,8 @@ func _test_registry() -> void:
 		Combos.combo_for(ElementTypes.Element.AIR, ElementTypes.Element.FIRE) == fb)
 	_check("combo_for(FIRE, FIRE) is undefined (-1)",
 		Combos.combo_for(ElementTypes.Element.FIRE, ElementTypes.Element.FIRE) == -1)
-	_check("an undefined pair is -1",
-		Combos.combo_for(ElementTypes.Element.FIRE, ElementTypes.Element.WATER) == -1)
+	_check("Fire + Water now forms Steam",
+		Combos.combo_for(ElementTypes.Element.FIRE, ElementTypes.Element.WATER) == Combos.Combo.STEAM)
 	_check("Fire Breath's parents are Fire and Air",
 		Combos.DATA[fb]["parents"].has(ElementTypes.Element.FIRE)
 		and Combos.DATA[fb]["parents"].has(ElementTypes.Element.AIR))
@@ -50,8 +52,10 @@ func _test_registry() -> void:
 		Combos.DATA[fb]["damage_element"] == ElementTypes.Element.FIRE)
 	_check("combos_including(FIRE) contains Fire Breath",
 		Combos.combos_including(ElementTypes.Element.FIRE).has(fb))
-	_check("combos_including(WATER) is empty in this slice",
-		Combos.combos_including(ElementTypes.Element.WATER).is_empty())
+	_check("combos_including(WATER) now has Steam, Quicksand and Hail",
+		Combos.combos_including(ElementTypes.Element.WATER).has(Combos.Combo.STEAM)
+		and Combos.combos_including(ElementTypes.Element.WATER).has(Combos.Combo.QUICKSAND)
+		and Combos.combos_including(ElementTypes.Element.WATER).has(Combos.Combo.HAIL))
 
 
 ## --- Tower.transform_into: stats, identity, carry-level, reset-tier ----------
@@ -81,6 +85,24 @@ func _test_transform() -> void:
 		tower.source_elements().size() == 2
 		and tower.source_elements().has(ElementTypes.Element.AIR))
 	_check("upgrade cost is 3x the combo cost", tower.upgrade_cost() == 390)
+
+	tower.queue_free()
+
+
+## --- Aura combo (Quicksand): damage is aura_dps and rides the tier ladder ----
+func _test_aura_scaling() -> void:
+	var tower = load("res://scenes/Tower.tscn").instantiate()
+	add_child(tower)
+	tower.configure(ElementTypes.Element.EARTH)
+	tower.transform_into(Combos.Combo.QUICKSAND)
+
+	var aura_dps: float = Combos.DATA[Combos.Combo.QUICKSAND]["aura_dps"]
+	_check("aura combo's base damage is its aura_dps", _about(tower.damage, aura_dps))
+
+	# Upgrading a tier must actually strengthen the aura (the old bug: it didn't).
+	tower.upgrade_tier()  # Tier 2 -> +50% base damage
+	_check("aura damage scales with tier (upgrade isn't a dead gold sink)",
+		_about(tower.damage, aura_dps * 1.5))
 
 	tower.queue_free()
 
@@ -115,7 +137,58 @@ func _fake_enemy(ground_pos: Vector2) -> Node2D:
 	return e
 
 
-## --- GameManager.available_tier / available_combo_for ------------------------
+## --- Enemy status effects: slow (min factor), stun (factor 0), burn, refresh --
+func _test_status_effects() -> void:
+	var enemy = load("res://scenes/Enemy.tscn").instantiate()
+	add_child(enemy)
+	enemy.configure({
+		"element": ElementTypes.Element.EARTH,
+		"health": 1000.0, "speed": 60.0, "gold": 0, "xp": 0,
+		"lives": 1, "rank": Enemy.Rank.BASIC,
+	})
+	enemy.health = enemy.max_health
+
+	# Slow: the strongest (lowest) factor wins; two slows don't multiply.
+	enemy.apply_slow(0.5, 1.0)
+	_check("one slow sets the speed factor", _about(enemy.current_slow_factor(), 0.5))
+	enemy.apply_slow(0.7, 1.0)
+	_check("a weaker slow doesn't override the stronger", _about(enemy.current_slow_factor(), 0.5))
+
+	# A stun is just a factor-0 slow.
+	enemy.apply_slow(0.0, 1.0)
+	_check("a stun stops the enemy (factor 0)", _about(enemy.current_slow_factor(), 0.0))
+
+	# Slows expire after their duration, speed returns to full.
+	enemy._tick_effects(2.0)
+	_check("slows expire and speed returns to full", _about(enemy.current_slow_factor(), 1.0))
+
+	# Burn ticks damage through take_damage; Earth-on-Earth = 0.75 multiplier,
+	# so 10 dps for 1s = 7.5 applied.
+	var before: float = enemy.health
+	enemy.apply_dot(10.0, 3.0, ElementTypes.Element.EARTH)
+	enemy._tick_effects(1.0)
+	_check("a burn tick damages the enemy", _about(enemy.health, before - 7.5))
+
+	# Re-applying a same-source burn refreshes the one entry instead of stacking.
+	enemy._dots.clear()
+	enemy.apply_dot(10.0, 3.0, ElementTypes.Element.EARTH, enemy)
+	enemy.apply_dot(10.0, 3.0, ElementTypes.Element.EARTH, enemy)
+	_check("same-source burn refreshes, not stacks", enemy._dots.size() == 1)
+
+	# A projectile carrying a slow applies it on hit.
+	enemy._slows.clear()
+	var proj = load("res://scenes/Projectile.tscn").instantiate()
+	add_child(proj)
+	proj._element = ElementTypes.Element.WATER
+	proj._effects = {"slow_factor": 0.5, "slow_duration": 2.0}
+	proj._apply_effects(enemy, null, true)
+	_check("a projectile applies its carried slow on hit", _about(enemy.current_slow_factor(), 0.5))
+
+	proj.queue_free()
+	enemy.queue_free()
+
+
+## --- GameManager.available_tier / available_combos_for -----------------------
 func _test_available_queries() -> void:
 	GameManager.new_game()
 
@@ -128,13 +201,20 @@ func _test_available_queries() -> void:
 	_check("basic tower available_tier equals its element tier",
 		GameManager.available_tier(fire_tower) == 1)
 
-	# available_combo_for: no partner owned yet.
+	# available_combos_for: no partner owned yet.
 	_check("no combo offered before the partner is owned",
-		GameManager.available_combo_for(fire_tower) == -1)
+		GameManager.available_combos_for(fire_tower).is_empty())
 
 	GameManager.choose_element(ElementTypes.Element.AIR)  # Air -> tier 1
-	_check("Fire tower can combo once Air is owned",
-		GameManager.available_combo_for(fire_tower) == Combos.Combo.FIRE_BREATH)
+	_check("Fire tower offers only Fire Breath with just Air owned",
+		GameManager.available_combos_for(fire_tower) == [Combos.Combo.FIRE_BREATH])
+
+	# A second owned partner adds a second transform option.
+	GameManager.choose_element(ElementTypes.Element.WATER)  # Water -> tier 1
+	var options: Array = GameManager.available_combos_for(fire_tower)
+	_check("Fire tower now offers Fire Breath and Steam",
+		options.has(Combos.Combo.FIRE_BREATH) and options.has(Combos.Combo.STEAM)
+		and options.size() == 2)
 
 	# Combo tier cap is the LOWER of the two parents.
 	fire_tower.transform_into(Combos.Combo.FIRE_BREATH)
@@ -149,7 +229,7 @@ func _test_available_queries() -> void:
 
 	# A combo never offers a further transform.
 	_check("a combo tower is not offered a transform",
-		GameManager.available_combo_for(fire_tower) == -1)
+		GameManager.available_combos_for(fire_tower).is_empty())
 
 	fire_tower.queue_free()
 
@@ -170,12 +250,12 @@ func _test_transform_flow() -> void:
 
 	# Too poor: transform costs 100, player has 50 -> nothing happens.
 	GameManager.gold = 50
-	main._on_tower_transform_requested(tower)
+	main._on_tower_transform_requested(tower, Combos.Combo.FIRE_BREATH)
 	_check("a broke player can't transform", not tower.is_combo and GameManager.gold == 50)
 
 	# Affordable: spends the transform cost and becomes the combo, level carried.
 	GameManager.gold = 100
-	main._on_tower_transform_requested(tower)
+	main._on_tower_transform_requested(tower, Combos.Combo.FIRE_BREATH)
 	_check("transform spends the transform cost", GameManager.gold == 0)
 	_check("the tower is now a combo", tower.is_combo)
 	_check("the combo carried its XP level", tower.level == carried_level)
