@@ -123,7 +123,11 @@ func transform_into(new_combo_id: int) -> void:
 	parent_elements.assign(data["parents"])  # untyped Array -> Array[int]
 	element = data["damage_element"]
 	aoe_radius = data["aoe_radius"]
-	base_damage = data["damage"]
+	# An aura combo's per-shot "damage" is 0; its real output is aura_dps. Feed
+	# that in as the base so it rides the tier and XP ladders like every other
+	# stat (a tiered/leveled Quicksand actually hits harder). Slow factor is left
+	# flat by design - only the damage scales.
+	base_damage = data.get("aura_dps", 0.0) if data.get("firing_mode", "projectile") == "aura" else data["damage"]
 	base_fire_rate = data["fire_rate"]
 	range_radius = data["range"]
 	cost = data["cost"]
@@ -244,13 +248,13 @@ const AURA_SLOW_LINGER := 0.3
 ## frame. Damage rides the normal take_damage path (elemental multiplier and
 ## killing-blow credit included).
 func _process_aura(delta: float) -> void:
-	var data: Dictionary = Combos.DATA[combo_id]
-	var slow_factor: float = data.get("slow_factor", 1.0)
-	var dps: float = data.get("aura_dps", 0.0)
+	var slow_factor: float = Combos.DATA[combo_id].get("slow_factor", 1.0)
+	# `damage` is aura_dps scaled by tier and XP level (set in transform_into /
+	# _recompute_stats), so upgrading Quicksand genuinely strengthens its field.
 	for enemy in _enemies_in_range():
 		enemy.apply_slow(slow_factor, AURA_SLOW_LINGER, self)
-		if dps > 0.0:
-			enemy.take_damage(dps * delta, element, self)
+		if damage > 0.0:
+			enemy.take_damage(damage * delta, element, self)
 
 
 func _find_target() -> Node2D:

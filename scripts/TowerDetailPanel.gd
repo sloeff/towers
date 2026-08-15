@@ -259,8 +259,8 @@ func _refresh_dynamic() -> void:
 	# An aura tower (Quicksand) has no per-shot damage or fire rate; it deals a
 	# continuous tick, so it reads its aura's damage-per-second instead of 0.0.
 	if _tower.is_combo and Combos.DATA[_tower.combo_id].get("firing_mode", "projectile") == "aura":
-		var aura_dps: float = Combos.DATA[_tower.combo_id].get("aura_dps", 0.0)
-		_damage.text = "Damage: %.1f/s (aura)" % aura_dps
+		# _tower.damage is aura_dps scaled by tier and XP, so this tracks upgrades.
+		_damage.text = "Damage: %.1f/s (aura)" % _tower.damage
 		_fire_rate.text = "Slow: %d%%" % int(round((1.0 - Combos.DATA[_tower.combo_id].get("slow_factor", 1.0)) * 100.0))
 	else:
 		_damage.text = "Damage: %.1f" % _tower.damage
@@ -319,7 +319,9 @@ func _rebuild_transform_buttons(combos: Array[int]) -> void:
 	for child in _transform_box.get_children():
 		child.queue_free()
 	_transform_buttons.clear()
-	_transform_combo_ids = combos.duplicate()
+	# available_combos_for returns a fresh array each call and we never mutate it,
+	# so hold the reference directly (no duplicate needed).
+	_transform_combo_ids = combos
 	for combo_id in combos:
 		var button := Button.new()
 		button.focus_mode = Control.FOCUS_NONE

@@ -24,6 +24,7 @@ func _about(a: float, b: float, eps := 0.01) -> bool:
 func _ready() -> void:
 	_test_registry()
 	_test_transform()
+	_test_aura_scaling()
 	_test_splash_targets()
 	_test_status_effects()
 	_test_available_queries()
@@ -84,6 +85,24 @@ func _test_transform() -> void:
 		tower.source_elements().size() == 2
 		and tower.source_elements().has(ElementTypes.Element.AIR))
 	_check("upgrade cost is 3x the combo cost", tower.upgrade_cost() == 390)
+
+	tower.queue_free()
+
+
+## --- Aura combo (Quicksand): damage is aura_dps and rides the tier ladder ----
+func _test_aura_scaling() -> void:
+	var tower = load("res://scenes/Tower.tscn").instantiate()
+	add_child(tower)
+	tower.configure(ElementTypes.Element.EARTH)
+	tower.transform_into(Combos.Combo.QUICKSAND)
+
+	var aura_dps: float = Combos.DATA[Combos.Combo.QUICKSAND]["aura_dps"]
+	_check("aura combo's base damage is its aura_dps", _about(tower.damage, aura_dps))
+
+	# Upgrading a tier must actually strengthen the aura (the old bug: it didn't).
+	tower.upgrade_tier()  # Tier 2 -> +50% base damage
+	_check("aura damage scales with tier (upgrade isn't a dead gold sink)",
+		_about(tower.damage, aura_dps * 1.5))
 
 	tower.queue_free()
 
