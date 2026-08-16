@@ -192,21 +192,49 @@ func take_damage(amount: float, attacker_element: int, source: Node2D = null) ->
 	queue_redraw()
 	if health <= 0.0:
 		_removed = true
-		GameManager.add_gold(gold_reward)
-		if is_instance_valid(source):
-			source.register_kill(xp_reward)
-		_show_gold_reward()
+		# Resolve the killer once: it earns the XP, its Gold Find rides on top of
+		# the reward, and its magic find improves the loot roll. It may have been
+		# sold since the shot was fired, hence the validity check.
+		var killer: Node2D = source if is_instance_valid(source) else null
+		var reward := gold_reward
+		if killer != null:
+			reward += killer.gold_find_bonus()
+			killer.register_kill(xp_reward)
+		GameManager.add_gold(reward)
+		_show_gold_reward(reward)
+		_roll_loot_drop(killer)
 		died.emit(self)
 		queue_free()
 
 
+## Loot drop (DESIGN_DOC section 6), rolled only here - a unit that reaches the
+## exit leaves nothing, so leaking is never a way to farm items.
+func _roll_loot_drop(killer: Node2D) -> void:
+	var loot_id: int = Loot.roll_drop(rank, all_resist,
+		killer.magic_find() if killer != null else 0.0)
+	if loot_id < 0:
+		return
+	Inventory.add(loot_id)
+	_show_loot_drop(loot_id)
+
+
 ## The popup has to outlive this node, so it goes to the parent (Entities) -
 ## the same reason Tower parents its projectiles there rather than to itself.
-func _show_gold_reward() -> void:
+func _show_gold_reward(amount: int) -> void:
 	var popup := FLOATING_TEXT_SCENE.instantiate()
 	get_parent().add_child(popup)
 	popup.global_position = aim_position()
-	popup.setup("+%d" % gold_reward)
+	popup.setup("+%d" % amount)
+
+
+## Drop announcement, in the loot's rarity colour and lifted above the gold
+## number so the two don't overlap. It lingers longer - a drop is rare enough
+## that missing it would sting.
+func _show_loot_drop(loot_id: int) -> void:
+	var popup := FLOATING_TEXT_SCENE.instantiate()
+	get_parent().add_child(popup)
+	popup.global_position = aim_position() + Vector2(0.0, -22.0)
+	popup.setup(Loot.name_of(loot_id) + "!", Loot.color_of(loot_id), 1.6)
 
 
 func _on_reached_goal() -> void:

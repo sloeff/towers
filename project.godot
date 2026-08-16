@@ -24,6 +24,8 @@ config/icon="res://icon.svg"
 GameManager="*res://autoload/GameManager.gd"
 ElementTypes="*res://autoload/ElementTypes.gd"
 Combos="*res://autoload/Combos.gd"
+Loot="*res://autoload/Loot.gd"
+Inventory="*res://autoload/Inventory.gd"
 GridManager="*res://autoload/GridManager.gd"
 
 [display]

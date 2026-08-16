@@ -1,9 +1,10 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/HUD.gd" id="1_hud"]
 [ext_resource type="Script" path="res://scripts/ElementSelect.gd" id="2_element_select"]
 [ext_resource type="Script" path="res://scripts/TowerDetailPanel.gd" id="3_tower_detail"]
 [ext_resource type="Script" path="res://scripts/BuildPrompt.gd" id="4_build_prompt"]
+[ext_resource type="Script" path="res://scripts/InventoryPanel.gd" id="5_inventory"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_topbar"]
 bg_color = Color(0.07, 0.08, 0.11, 0.85)
@@ -79,6 +80,11 @@ theme_override_constants/separation = 24
 [node name="ElementButtons" type="HBoxContainer" parent="BuildBar"]
 layout_mode = 2
 theme_override_constants/separation = 8
+
+[node name="BagButton" type="Button" parent="BuildBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(110, 44)
+text = "Bag (0)"
 
 [node name="NextWaveButton" type="Button" parent="BuildBar"]
 layout_mode = 2
@@ -161,6 +167,55 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_constants/separation = 14
 alignment = 1
+
+[node name="InventoryPanel" type="Panel" parent="."]
+visible = false
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_dim")
+script = ExtResource("5_inventory")
+
+[node name="Center" type="CenterContainer" parent="InventoryPanel"]
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Box" type="VBoxContainer" parent="InventoryPanel/Center"]
+layout_mode = 2
+custom_minimum_size = Vector2(520, 0)
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="InventoryPanel/Center/Box"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+text = "Bag"
+horizontal_alignment = 1
+
+[node name="SubtitleLabel" type="Label" parent="InventoryPanel/Center/Box"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.64, 0.67, 0.73, 1)
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 1
+
+[node name="Scroll" type="ScrollContainer" parent="InventoryPanel/Center/Box"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 380)
+horizontal_scroll_mode = 0
+
+[node name="List" type="VBoxContainer" parent="InventoryPanel/Center/Box/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="CloseButton" type="Button" parent="InventoryPanel/Center/Box"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+text = "Close"
 
 [node name="TowerDetailPanel" type="PanelContainer" parent="."]
 visible = false

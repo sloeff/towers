@@ -72,6 +72,11 @@ func _ready() -> void:
 	hud.tower_sell_requested.connect(_on_tower_sell_requested)
 	hud.tower_upgrade_requested.connect(_on_tower_upgrade_requested)
 	hud.tower_transform_requested.connect(_on_tower_transform_requested)
+	hud.tower_use_potion_requested.connect(_on_tower_use_potion_requested)
+	hud.tower_equip_requested.connect(_on_tower_equip_requested)
+	hud.tower_unequip_requested.connect(_on_tower_unequip_requested)
+	hud.loot_picked.connect(_on_loot_picked)
+	hud.loot_pick_cancelled.connect(_clear_loot_target)
 	hud.element_choice_made.connect(_on_element_choice_made)
 	hud.tower_detail_closed.connect(_deselect_tower)
 	hud.build_confirmed.connect(_confirm_pending_build)
@@ -162,6 +167,74 @@ func _on_tower_transform_requested(tower: Node2D, combo_id: int) -> void:
 		return
 	tower.transform_into(combo_id)
 	hud.show_tower_detail(tower)  # repopulate the panel title/stats for the combo
+
+
+## The tower a loot pick is being made for, or null when the bag is just being
+## browsed. Main owns this the same way it owns the tower selection - the panels
+## only emit intent.
+var _loot_target: Node2D = null
+
+
+func _clear_loot_target() -> void:
+	_loot_target = null
+
+
+## Abandon a pending pick and close the bag with it. A bag opened from the build
+## bar (no target) is left alone - it has its own Close button.
+func _close_loot_pick() -> void:
+	if _loot_target == null:
+		return
+	_loot_target = null
+	hud.hide_inventory()
+
+
+## Open the bag filtered to potions for this tower. The pick comes back through
+## _on_loot_picked.
+func _on_tower_use_potion_requested(tower: Node2D) -> void:
+	_loot_target = tower
+	hud.show_loot_pick(Loot.Kind.POTION)
+
+
+func _on_tower_equip_requested(tower: Node2D) -> void:
+	if not tower.has_free_item_slot():
+		hud.flash_message("No free item slot")
+		return
+	_loot_target = tower
+	hud.show_loot_pick(Loot.Kind.ITEM)
+
+
+## Take an item back off a tower and return it to the bag. The reverse of an
+## equip; a potion has no equivalent - it's spent for good.
+func _on_tower_unequip_requested(tower: Node2D, slot: int) -> void:
+	var loot_id: int = tower.unequip_item(slot)
+	if loot_id < 0:
+		return
+	Inventory.add(loot_id)
+
+
+## Apply the chosen loot to the tower that opened the bag, taking it out of the
+## Inventory. A potion is drunk (permanent); an item fills a slot and can come
+## back out. Guarded on every step because the tower can be sold, or the stack
+## emptied, between opening the bag and picking.
+func _on_loot_picked(loot_id: int) -> void:
+	var tower := _loot_target
+	_loot_target = null
+	hud.hide_inventory()
+	if not is_instance_valid(tower) or not Inventory.has(loot_id):
+		return
+	if Loot.is_potion(loot_id):
+		if not Inventory.remove(loot_id):
+			return
+		tower.apply_potion(loot_id)
+		hud.flash_message("%s applied" % Loot.name_of(loot_id))
+		return
+	if not tower.has_free_item_slot():
+		hud.flash_message("No free item slot")
+		return
+	if not Inventory.remove(loot_id):
+		return
+	tower.equip_item(loot_id)
+	hud.flash_message("%s equipped" % Loot.name_of(loot_id))
 
 
 ## A touch device held in portrait can't show the landscape-shaped board, so we
@@ -363,6 +436,7 @@ func _on_tap(world_pos: Vector2) -> void:
 
 func _on_cancel() -> void:
 	_clear_pending_build()
+	_close_loot_pick()
 	_deselect_tower()
 
 
@@ -435,10 +509,16 @@ func _on_tower_sell_requested(tower: Node2D) -> void:
 	if GameManager.is_over:
 		return
 	GameManager.add_gold(tower.sell_value())
+	# Equipped items come back to the bag - they're gear, not part of the tower.
+	# Potions drunk into it are gone, which is the cost of committing them.
+	for slot in range(tower.items.size() - 1, -1, -1):
+		Inventory.add(tower.unequip_item(slot))
 	GridManager.set_occupied(tower.cell, false)
 	_towers_by_cell.erase(tower.cell)
 	if _selected_tower == tower:
 		_selected_tower = null
+	if _loot_target == tower:
+		_close_loot_pick()
 	hud.hide_tower_detail()
 	tower.queue_free()
 	_update_hover()

@@ -1,16 +1,21 @@
 extends PanelContainer
-## Floating popover for the selected tower: its combat stats, a Sell button, and
-## a disabled Upgrade button (the token/gold upgrade economy in DESIGN_DOC
-## section 8 isn't built yet). Lives on the HUD CanvasLayer in screen space and
-## re-anchors to the tower it describes every frame, so it tracks camera pan and
-## zoom. Built in code, matching how the build bar generates its buttons.
+## Floating popover for the selected tower: its combat stats, the loot applied to
+## it, and the Upgrade / Transform / Sell actions. Lives on the HUD CanvasLayer
+## in screen space and re-anchors to the tower it describes every frame, so it
+## tracks camera pan and zoom. Built in code, matching how the build bar
+## generates its buttons.
 ##
-## Future: an active-buffs section and item slots (the modifier system in
-## DESIGN_DOC's "Items") drop into the same vertical stack.
+## Loot (DESIGN_DOC section 6) is applied from here, not from the bag: the
+## player picks a tower first, then a potion or an item for it. This panel only
+## emits the intent - Main performs it and moves the loot in or out of the
+## Inventory.
 
 signal sell_pressed(tower: Node2D)
 signal upgrade_pressed(tower: Node2D)
 signal transform_pressed(tower: Node2D, combo_id: int)
+signal use_potion_pressed(tower: Node2D)
+signal equip_item_pressed(tower: Node2D)
+signal unequip_item_pressed(tower: Node2D, slot: int)
 signal close_pressed
 
 ## Keep the whole panel this far inside the viewport edges.
@@ -20,6 +25,10 @@ const SCREEN_MARGIN := 8.0
 const SCREEN_OFFSET := Vector2(18.0, -30.0)
 ## World-space point on the tower to anchor to - roughly its head.
 const TOWER_ANCHOR := Vector2(0.0, -40.0)
+## Tint of an item slot with nothing in it.
+const EMPTY_SLOT_COLOR := Color(0.55, 0.57, 0.62)
+
+const TowerScript := preload("res://scripts/Tower.gd")
 
 var _tower: Node2D = null
 
@@ -32,6 +41,7 @@ var _damage: Label
 var _range: Label
 var _fire_rate: Label
 var _kills: Label
+var _gold_find: Label
 ## One Transform button per available combo, rebuilt only when the set of
 ## available combos changes (a tower can have several owned partners). Keyed by
 ## combo_id so prices refresh each frame without recreating buttons.
@@ -40,6 +50,16 @@ var _transform_buttons: Dictionary = {}
 var _transform_combo_ids: Array[int] = []
 var _upgrade_button: Button
 var _sell_button: Button
+
+## Loot widgets. The potion badges are rebuilt only when the tower's drunk-potion
+## list changes, the item slots only when their contents change - both are
+## refreshed every frame otherwise, so the cheap comparison guards the rebuild.
+var _potion_row: HBoxContainer
+var _potion_badge_ids: Array[int] = []
+var _potion_button: Button
+var _item_row: HBoxContainer
+var _item_slots: Array[Button] = []
+var _item_slot_ids: Array[int] = []
 
 
 func _ready() -> void:
@@ -95,6 +115,8 @@ func _build_ui() -> void:
 	_range = _add_stat(box)
 	_fire_rate = _add_stat(box)
 	_kills = _add_stat(box)
+	_gold_find = _add_stat(box)
+	_gold_find.add_theme_color_override("font_color", Color(1.0, 0.84, 0.35))
 
 	_build_item_slots(box)
 
@@ -123,44 +145,61 @@ func _build_ui() -> void:
 	buttons.add_child(_sell_button)
 
 
-## Active potion effects applied to the tower, shown as coloured badges just
-## below the name. These are dummy placeholders - the potion/modifier system in
-## DESIGN_DOC's "Potions" isn't built yet, so a fixed sample is drawn for layout.
+## Potions drunk by this tower, one badge each, plus the button that opens the
+## bag filtered to potions. A potion is permanent, so a badge is a record, not a
+## control - only the button is clickable.
 func _build_potion_effects(box: VBoxContainer) -> void:
-	var effects := [
-		{"label": "GF", "color": Color(0.85, 0.68, 0.18), "name": "Gold Find"},
-		{"label": "DMG", "color": Color(0.82, 0.29, 0.22), "name": "Damage Up"},
-		{"label": "SLW", "color": Color(0.27, 0.53, 0.83), "name": "Slow"},
-	]
+	_potion_row = HBoxContainer.new()
+	_potion_row.add_theme_constant_override("separation", 6)
+	box.add_child(_potion_row)
 
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	box.add_child(row)
+	_potion_button = Button.new()
+	_potion_button.focus_mode = Control.FOCUS_NONE
+	_potion_button.custom_minimum_size = Vector2(0.0, 36.0)
+	_potion_button.pressed.connect(_on_use_potion_pressed)
+	box.add_child(_potion_button)
 
-	for effect in effects:
-		var color: Color = effect["color"]
-		var badge := Panel.new()
-		badge.custom_minimum_size = Vector2(34.0, 34.0)
-		badge.tooltip_text = "%s (placeholder)" % effect["name"]
 
-		var style := StyleBoxFlat.new()
-		style.bg_color = color.darkened(0.15)
-		style.set_border_width_all(1)
-		style.border_color = color.lightened(0.3)
-		style.set_corner_radius_all(3)
-		badge.add_theme_stylebox_override("panel", style)
+## Rebuild the badge row when the tower's drunk potions change (and on a switch
+## to a different tower). Repeats of the same potion collapse into one badge with
+## a count, so a heavily dosed tower doesn't overflow the panel.
+func _refresh_potion_badges() -> void:
+	if _tower.potions_taken != _potion_badge_ids:
+		_potion_badge_ids = _tower.potions_taken.duplicate()
+		# Detach before freeing: queue_free lands at the end of the frame, so the
+		# old badges would sit alongside the new ones until then.
+		for child in _potion_row.get_children():
+			_potion_row.remove_child(child)
+			child.queue_free()
+		var counts: Dictionary = {}
+		for id in _potion_badge_ids:
+			counts[id] = counts.get(id, 0) + 1
+		for id in counts:
+			_potion_row.add_child(_potion_badge(id, counts[id]))
+	var held: int = Inventory.ids_of_kind(Loot.Kind.POTION).size()
+	_potion_button.text = "Use potion" if held > 0 else "No potions"
+	_potion_button.disabled = held == 0
+	_potion_button.tooltip_text = "" if held > 0 else "Kill enemies to find potions"
 
-		var text := Label.new()
-		text.text = effect["label"]
-		text.add_theme_font_size_override("font_size", 11)
-		text.add_theme_color_override("font_color", Color(0.98, 0.98, 0.98))
-		text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		text.set_anchors_preset(Control.PRESET_FULL_RECT)
-		badge.add_child(text)
 
-		row.add_child(badge)
+func _potion_badge(id: int, count: int) -> Control:
+	var color: Color = Loot.color_of(id)
+	var badge := Panel.new()
+	badge.custom_minimum_size = Vector2(34.0, 34.0)
+	badge.tooltip_text = "%s%s - %s" % [
+		Loot.name_of(id), "" if count == 1 else " x%d" % count, Loot.describe(id)]
+	badge.add_theme_stylebox_override("panel", _slot_style(color))
+
+	var text := Label.new()
+	text.text = Loot.badge_of(id) if count == 1 else "%s%d" % [Loot.badge_of(id), count]
+	text.add_theme_font_size_override("font_size", 11)
+	text.add_theme_color_override("font_color", Color(0.98, 0.98, 0.98))
+	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text.set_anchors_preset(Control.PRESET_FULL_RECT)
+	badge.add_child(text)
+	return badge
 
 
 ## Level readout + progress toward the next level, just below the name. Empty
@@ -207,26 +246,82 @@ func _build_xp_row(box: VBoxContainer) -> void:
 	_xp_bar.add_child(_xp_label)
 
 
-## Three greyed-out placeholder item slots. Wiring them up is future work (the
-## equippable items in DESIGN_DOC's "Items"); for now they just mark the space.
+## The tower's item slots (DESIGN_DOC's "Items"). Each is a button: empty opens
+## the bag filtered to items, filled takes the item back off and returns it to
+## the bag. Buttons rather than plain panels so a tap lands on something
+## finger-sized and Godot handles the press states.
 func _build_item_slots(box: VBoxContainer) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	box.add_child(row)
+	_item_row = HBoxContainer.new()
+	_item_row.add_theme_constant_override("separation", 6)
+	box.add_child(_item_row)
 
-	var slot_style := StyleBoxFlat.new()
-	slot_style.bg_color = Color(0.16, 0.17, 0.2, 0.9)
-	slot_style.set_border_width_all(1)
-	slot_style.border_color = Color(1.0, 1.0, 1.0, 0.18)
-	slot_style.set_corner_radius_all(3)
+	for i in TowerScript.MAX_ITEM_SLOTS:
+		var slot := Button.new()
+		slot.focus_mode = Control.FOCUS_NONE
+		slot.custom_minimum_size = Vector2(40.0, 40.0)
+		slot.add_theme_font_size_override("font_size", 12)
+		slot.pressed.connect(_on_item_slot_pressed.bind(i))
+		_item_row.add_child(slot)
+		_item_slots.append(slot)
 
-	for i in 3:
-		var slot := Panel.new()
-		slot.custom_minimum_size = Vector2(30.0, 30.0)
-		slot.tooltip_text = "Item slot (coming soon)"
-		slot.add_theme_stylebox_override("panel", slot_style)
-		slot.modulate = Color(1.0, 1.0, 1.0, 0.5)
-		row.add_child(slot)
+
+## Repaint the slots when their contents change. `_item_slot_ids` mirrors what is
+## currently drawn (-1 = empty), so the common case costs one array compare.
+func _refresh_item_slots() -> void:
+	var current: Array[int] = []
+	for i in TowerScript.MAX_ITEM_SLOTS:
+		current.append(_tower.items[i] if i < _tower.items.size() else -1)
+	var held: int = Inventory.ids_of_kind(Loot.Kind.ITEM).size()
+	for i in TowerScript.MAX_ITEM_SLOTS:
+		var slot: Button = _item_slots[i]
+		# An empty slot is only useful when there is something to put in it, so it
+		# goes disabled (but visible) with an empty bag - same rule as Use potion.
+		slot.disabled = current[i] < 0 and held == 0
+		if current[i] == _item_slot_ids_at(i):
+			continue
+		if current[i] < 0:
+			slot.text = "+"
+			slot.tooltip_text = "Equip an item" if held > 0 else "Kill enemies to find items"
+			slot.add_theme_stylebox_override("normal", _slot_style(EMPTY_SLOT_COLOR))
+			slot.add_theme_color_override("font_color", EMPTY_SLOT_COLOR)
+		else:
+			var color: Color = Loot.color_of(current[i])
+			slot.text = Loot.badge_of(current[i])
+			slot.tooltip_text = "%s - %s\nClick to unequip" % [
+				Loot.name_of(current[i]), Loot.describe(current[i])]
+			slot.add_theme_stylebox_override("normal", _slot_style(color))
+			slot.add_theme_color_override("font_color", Color(0.98, 0.98, 0.98))
+	_item_slot_ids = current
+
+
+## What slot `i` is currently drawn as, or -1 before the first refresh.
+func _item_slot_ids_at(i: int) -> int:
+	return _item_slot_ids[i] if i < _item_slot_ids.size() else -2
+
+
+## Shared square style for potion badges and item slots, tinted by rarity (or
+## grey for an empty slot) so the same loot reads the same everywhere.
+func _slot_style(color: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = color.darkened(0.6)
+	style.set_border_width_all(1)
+	style.border_color = Color(color, 0.8)
+	style.set_corner_radius_all(3)
+	return style
+
+
+func _on_use_potion_pressed() -> void:
+	if is_instance_valid(_tower):
+		use_potion_pressed.emit(_tower)
+
+
+func _on_item_slot_pressed(slot: int) -> void:
+	if not is_instance_valid(_tower):
+		return
+	if slot < _tower.items.size():
+		unequip_item_pressed.emit(_tower, slot)
+	else:
+		equip_item_pressed.emit(_tower)
 
 
 func _add_stat(box: VBoxContainer) -> Label:
@@ -243,7 +338,6 @@ func show_for(tower: Node2D) -> void:
 	_title.text = tower.display_name() if tower.is_combo else "%s Tower" % ElementTypes.element_name(tower.element)
 	_title.add_theme_color_override("font_color",
 		tower.display_color() if tower.is_combo else ElementTypes.text_color_of(tower.element))
-	_range.text = "Range: %s" % tower.range_radius
 	_sell_button.text = "Sell  +%dg" % tower.sell_value()
 	_refresh_dynamic()
 	visible = true
@@ -265,7 +359,16 @@ func _refresh_dynamic() -> void:
 	else:
 		_damage.text = "Damage: %.1f" % _tower.damage
 		_fire_rate.text = "Fire rate: %.2f/s" % _tower.fire_rate
+	# Range moves with loot (Farsight, Eagle Lens), so it refreshes here rather
+	# than being set once in show_for.
+	_range.text = "Range: %.0f" % _tower.range_radius
 	_kills.text = "Kills: %d" % _tower.kills
+	# Only worth a line once the tower actually has Gold Find on it.
+	var gold_find: int = _tower.gold_find_bonus()
+	_gold_find.visible = gold_find > 0
+	_gold_find.text = "Gold find: +%dg per kill" % gold_find
+	_refresh_potion_badges()
+	_refresh_item_slots()
 	_refresh_upgrade_button()
 	_refresh_transform_buttons()
 	if _tower.is_at_max_level():
