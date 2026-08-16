@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+﻿[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/HUD.gd" id="1_hud"]
 [ext_resource type="Script" path="res://scripts/ElementSelect.gd" id="2_element_select"]
@@ -168,6 +168,14 @@ layout_mode = 2
 theme_override_constants/separation = 14
 alignment = 1
 
+[node name="TowerDetailPanel" type="PanelContainer" parent="."]
+visible = false
+script = ExtResource("3_tower_detail")
+
+[node name="BuildPrompt" type="PanelContainer" parent="."]
+visible = false
+script = ExtResource("4_build_prompt")
+
 [node name="InventoryPanel" type="Panel" parent="."]
 visible = false
 layout_mode = 1
@@ -216,14 +224,6 @@ theme_override_constants/separation = 6
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
 text = "Close"
-
-[node name="TowerDetailPanel" type="PanelContainer" parent="."]
-visible = false
-script = ExtResource("3_tower_detail")
-
-[node name="BuildPrompt" type="PanelContainer" parent="."]
-visible = false
-script = ExtResource("4_build_prompt")
 
 [node name="RotateHint" type="Panel" parent="."]
 process_mode = 3

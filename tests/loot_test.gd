@@ -341,4 +341,17 @@ func _test_panels() -> void:
 	main._on_cancel()
 	_check("cancelling closes a pending pick", not bag.visible and main._loot_target == null)
 
+	# The bag is a full-screen panel that draws over the element-choice and
+	# result screens, and it stops processing when the tree pauses - so leaving it
+	# open across a pause would cover those screens with a panel whose own Close
+	# button no longer responds. Anything that pauses the run must close it.
+	main.hud._on_bag_pressed()
+	main._begin_element_choice()
+	_check("a pause closes the bag", not bag.visible)
+	main._on_element_choice_made(ElementTypes.Element.WATER)
+
+	main.hud._on_bag_pressed()
+	main._on_game_over()
+	_check("game over closes the bag", not bag.visible)
+
 	main.queue_free()

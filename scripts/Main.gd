@@ -109,8 +109,18 @@ func _on_starting_element_chosen(element: int) -> void:
 
 
 ## The tree is paused while any reason to hold the run is active.
+##
+## Closing the bag here is not cosmetic: it's a full-screen panel drawn over the
+## element-choice and result screens, and it stops processing when the tree
+## pauses - so left open it would cover those screens with a panel whose own
+## Close button no longer responds. This is the one choke point every pause
+## reason passes through.
 func _update_pause() -> void:
-	get_tree().paused = _awaiting_element or _awaiting_choice or _run_ended or _rotate_blocked
+	var paused: bool = _awaiting_element or _awaiting_choice or _run_ended or _rotate_blocked
+	if paused:
+		_loot_target = null
+		hud.hide_inventory()
+	get_tree().paused = paused
 
 
 ## A tier choice is offered after every 5th wave the player survives, but never
@@ -179,11 +189,10 @@ func _clear_loot_target() -> void:
 	_loot_target = null
 
 
-## Abandon a pending pick and close the bag with it. A bag opened from the build
-## bar (no target) is left alone - it has its own Close button.
+## Abandon any pending pick and close the bag. Escape routes here, and the bag
+## covers the whole screen, so it has to close whether it was opened for a pick
+## or just to browse.
 func _close_loot_pick() -> void:
-	if _loot_target == null:
-		return
 	_loot_target = null
 	hud.hide_inventory()
 

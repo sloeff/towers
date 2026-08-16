@@ -277,19 +277,22 @@ func _refresh_item_slots() -> void:
 		# An empty slot is only useful when there is something to put in it, so it
 		# goes disabled (but visible) with an empty bag - same rule as Use potion.
 		slot.disabled = current[i] < 0 and held == 0
+		# The tooltip tracks the bag, not just the slot's contents, so it refreshes
+		# even when the styling below is skipped as unchanged.
+		if current[i] < 0:
+			slot.tooltip_text = "Equip an item" if held > 0 else "Kill enemies to find items"
+		else:
+			slot.tooltip_text = "%s - %s\nClick to unequip" % [
+				Loot.name_of(current[i]), Loot.describe(current[i])]
 		if current[i] == _item_slot_ids_at(i):
 			continue
 		if current[i] < 0:
 			slot.text = "+"
-			slot.tooltip_text = "Equip an item" if held > 0 else "Kill enemies to find items"
 			slot.add_theme_stylebox_override("normal", _slot_style(EMPTY_SLOT_COLOR))
 			slot.add_theme_color_override("font_color", EMPTY_SLOT_COLOR)
 		else:
-			var color: Color = Loot.color_of(current[i])
 			slot.text = Loot.badge_of(current[i])
-			slot.tooltip_text = "%s - %s\nClick to unequip" % [
-				Loot.name_of(current[i]), Loot.describe(current[i])]
-			slot.add_theme_stylebox_override("normal", _slot_style(color))
+			slot.add_theme_stylebox_override("normal", _slot_style(Loot.color_of(current[i])))
 			slot.add_theme_color_override("font_color", Color(0.98, 0.98, 0.98))
 	_item_slot_ids = current
 
