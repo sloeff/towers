@@ -11,6 +11,11 @@ signal restart_requested
 signal tower_sell_requested(tower: Node2D)
 signal tower_upgrade_requested(tower: Node2D)
 signal tower_transform_requested(tower: Node2D, combo_id: int)
+signal tower_use_potion_requested(tower: Node2D)
+signal tower_equip_requested(tower: Node2D)
+signal tower_unequip_requested(tower: Node2D, slot: int)
+signal loot_picked(loot_id: int)
+signal loot_pick_cancelled
 signal tower_detail_closed
 signal build_confirmed
 signal build_cancelled
@@ -32,6 +37,7 @@ const BASE_BUTTON_HEIGHT := 44.0
 @onready var timer_label: Label = $TopBar/Row/TimerLabel
 @onready var message_label: Label = $MessageLabel
 @onready var element_buttons: HBoxContainer = $BuildBar/ElementButtons
+@onready var bag_button: Button = $BuildBar/BagButton
 @onready var next_wave_button: Button = $BuildBar/NextWaveButton
 @onready var result_panel: Panel = $ResultPanel
 @onready var result_title: Label = $ResultPanel/Center/Box/TitleLabel
@@ -39,6 +45,7 @@ const BASE_BUTTON_HEIGHT := 44.0
 @onready var restart_button: Button = $ResultPanel/Center/Box/RestartButton
 @onready var element_select: Panel = $ElementSelectPanel
 @onready var tower_detail: PanelContainer = $TowerDetailPanel
+@onready var inventory_panel: Panel = $InventoryPanel
 @onready var build_prompt: PanelContainer = $BuildPrompt
 @onready var rotate_hint: Panel = $RotateHint
 
@@ -68,6 +75,7 @@ func apply_ui_scale(viewport_size: Vector2) -> void:
 		if child is Control:
 			(child as Control).theme = _ui_theme
 	next_wave_button.custom_minimum_size.y = roundf(BASE_BUTTON_HEIGHT * scale)
+	bag_button.custom_minimum_size.y = roundf(BASE_BUTTON_HEIGHT * scale)
 
 
 ## Full-screen "rotate to landscape" cover, shown when a phone is held upright
@@ -85,7 +93,13 @@ func _ready() -> void:
 	tower_detail.sell_pressed.connect(func(tower: Node2D) -> void: tower_sell_requested.emit(tower))
 	tower_detail.upgrade_pressed.connect(func(tower: Node2D) -> void: tower_upgrade_requested.emit(tower))
 	tower_detail.transform_pressed.connect(func(tower: Node2D, combo_id: int) -> void: tower_transform_requested.emit(tower, combo_id))
+	tower_detail.use_potion_pressed.connect(func(tower: Node2D) -> void: tower_use_potion_requested.emit(tower))
+	tower_detail.equip_item_pressed.connect(func(tower: Node2D) -> void: tower_equip_requested.emit(tower))
+	tower_detail.unequip_item_pressed.connect(func(tower: Node2D, slot: int) -> void: tower_unequip_requested.emit(tower, slot))
 	tower_detail.close_pressed.connect(func() -> void: tower_detail_closed.emit())
+	inventory_panel.loot_picked.connect(func(loot_id: int) -> void: loot_picked.emit(loot_id))
+	inventory_panel.closed.connect(func() -> void: loot_pick_cancelled.emit())
+	bag_button.pressed.connect(_on_bag_pressed)
 	build_prompt.confirmed.connect(func() -> void: build_confirmed.emit())
 	build_prompt.cancelled.connect(func() -> void: build_cancelled.emit())
 
@@ -93,6 +107,8 @@ func _ready() -> void:
 	GameManager.lives_changed.connect(_on_lives_changed)
 	GameManager.wave_changed.connect(_on_wave_changed)
 	GameManager.elements_changed.connect(_refresh_element_buttons)
+	Inventory.inventory_changed.connect(_on_inventory_changed)
+	_on_inventory_changed()
 	_on_gold_changed(GameManager.gold)
 	_on_lives_changed(GameManager.lives)
 	_on_wave_changed(GameManager.wave_number)
@@ -127,6 +143,31 @@ func show_tower_detail(tower: Node2D) -> void:
 
 func hide_tower_detail() -> void:
 	tower_detail.hide_panel()
+
+
+## Open the bag read-only from the build bar. Loot is applied from a tower, so
+## this view is informational; the tower detail panel drives the picking.
+func _on_bag_pressed() -> void:
+	if inventory_panel.visible:
+		inventory_panel.hide_panel()
+	else:
+		inventory_panel.show_browse()
+
+
+## Open the bag filtered to one Loot.Kind so the player can choose something for
+## the selected tower. Main tracks which tower asked.
+func show_loot_pick(kind: int) -> void:
+	inventory_panel.show_pick(kind)
+
+
+func hide_inventory() -> void:
+	inventory_panel.hide_panel()
+
+
+## Bag button doubles as the loot counter, so a drop is noticeable without the
+## panel open.
+func _on_inventory_changed() -> void:
+	bag_button.text = "Bag (%d)" % Inventory.total_held()
 
 
 func show_build_prompt(world_pos: Vector2, cost: int) -> void:

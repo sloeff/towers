@@ -53,15 +53,31 @@ var parent_elements: Array[int] = []
 ## Splash radius on the un-squashed ground plane; 0 = single-target (all basics).
 var aoe_radius: float = 0.0
 
+## Loot (DESIGN_DOC section 6). A potion is consumed into `potion_mods`
+## permanently; an item sits in a slot and can be taken back out. Both are read
+## through mod_total(), so no stat read anywhere branches on a specific effect.
+##   potion_mods: Loot MOD_* key -> summed value from every potion drunk
+##   items:       up to MAX_ITEM_SLOTS Loot.Id, order = slot order
+const MAX_ITEM_SLOTS := 3
+var potion_mods: Dictionary = {}
+var items: Array[int] = []
+## Which potions were drunk, in order. Purely a record for the detail panel's
+## badges - the stats all come from potion_mods.
+var potions_taken: Array[int] = []
+
 var level: int = 1
 var experience: int = 0
 ## Lifetime killing blows landed by this tower, shown in the detail panel so the
 ## player can see which tower is pulling its weight. Counts past the level cap.
 var kills: int = 0
-## Level-1 stats from ElementTypes.DATA; effective damage/fire_rate are these
-## scaled by the current level in _recompute_stats().
+## Level-1 stats from ElementTypes.DATA (or Combos.DATA once transformed). Every
+## one of damage / fire_rate / range_radius / aoe_radius is DERIVED from these in
+## _recompute_stats() - nothing assigns the effective stats directly, or a later
+## tier upgrade would silently wipe an item's bonus.
 var base_damage: float = 8.0
 var base_fire_rate: float = 1.2
+var base_range: float = 170.0
+var base_aoe: float = 0.0
 
 var cell: Vector2i
 var show_range: bool = false:
@@ -122,18 +138,76 @@ func transform_into(new_combo_id: int) -> void:
 	combo_id = new_combo_id
 	parent_elements.assign(data["parents"])  # untyped Array -> Array[int]
 	element = data["damage_element"]
-	aoe_radius = data["aoe_radius"]
 	# An aura combo's per-shot "damage" is 0; its real output is aura_dps. Feed
 	# that in as the base so it rides the tier and XP ladders like every other
 	# stat (a tiered/leveled Quicksand actually hits harder). Slow factor is left
 	# flat by design - only the damage scales.
 	base_damage = data.get("aura_dps", 0.0) if data.get("firing_mode", "projectile") == "aura" else data["damage"]
 	base_fire_rate = data["fire_rate"]
-	range_radius = data["range"]
+	base_range = data["range"]
+	base_aoe = data["aoe_radius"]
 	cost = data["cost"]
 	tier = 1  # fresh combo ladder; level/experience carried
 	_recompute_stats()
 	queue_redraw()
+
+
+## Summed value of one Loot MOD_* key across every potion drunk and every item
+## equipped. The single read point for loot, so a new effect never adds a
+## per-effect field to this class (DESIGN_DOC section 6).
+func mod_total(key: String) -> float:
+	var total: float = potion_mods.get(key, 0.0)
+	for id in items:
+		total += Loot.mods_of(id).get(key, 0.0)
+	return total
+
+
+## Drink a potion: fold its mods into this tower permanently. There is no undo -
+## that's what separates a potion from an item. The caller takes it out of the
+## Inventory.
+func apply_potion(loot_id: int) -> void:
+	for key in Loot.mods_of(loot_id):
+		potion_mods[key] = potion_mods.get(key, 0.0) + Loot.mods_of(loot_id)[key]
+	potions_taken.append(loot_id)
+	_recompute_stats()
+	queue_redraw()
+
+
+func has_free_item_slot() -> bool:
+	return items.size() < MAX_ITEM_SLOTS
+
+
+## Equip an item into the next free slot. False (no change) when full, so the
+## caller can leave it in the bag.
+func equip_item(loot_id: int) -> bool:
+	if not has_free_item_slot():
+		return false
+	items.append(loot_id)
+	_recompute_stats()
+	queue_redraw()
+	return true
+
+
+## Take the item out of `slot` and hand its id back to the caller (which returns
+## it to the Inventory), or -1 if the slot is empty.
+func unequip_item(slot: int) -> int:
+	if slot < 0 or slot >= items.size():
+		return -1
+	var loot_id: int = items[slot]
+	items.remove_at(slot)
+	_recompute_stats()
+	queue_redraw()
+	return loot_id
+
+
+## Extra gold this tower earns on a killing blow, on top of the enemy's reward.
+func gold_find_bonus() -> int:
+	return roundi(mod_total(Loot.MOD_GOLD_FIND))
+
+
+## This tower's bonus to the loot drop chance of anything it kills.
+func magic_find() -> float:
+	return mod_total(Loot.MOD_MAGIC_FIND)
 
 
 ## Display name/colour that answer for both a basic tower and a combo, so the
@@ -195,11 +269,21 @@ static func fire_rate_at_tier(base: float, at_tier: int) -> float:
 	return base * (1.0 + TIER_FIRE_RATE_GAIN * (at_tier - 1))
 
 
-## Effective damage and fire rate off the base stats, scaled by both axes: the
-## tier (paid upgrade) and the XP level (automatic). Range is unaffected by both.
+## Every effective stat, off the base stats and the three things that scale
+## them: the tier (paid upgrade), the XP level (automatic) and loot (potions and
+## equipped items). This is the only writer of damage / fire_rate /
+## range_radius / aoe_radius, so any of them can be modified without a later
+## upgrade or transform stomping it. Tier and level don't touch range or AoE;
+## loot does.
 func _recompute_stats() -> void:
-	damage = damage_at_tier(base_damage, tier) * (1.0 + DAMAGE_GAIN_PER_LEVEL * (level - 1))
-	fire_rate = fire_rate_at_tier(base_fire_rate, tier) * (1.0 + FIRE_RATE_GAIN_PER_LEVEL * (level - 1))
+	damage = damage_at_tier(base_damage, tier) \
+		* (1.0 + DAMAGE_GAIN_PER_LEVEL * (level - 1)) \
+		* (1.0 + mod_total(Loot.MOD_DAMAGE))
+	fire_rate = fire_rate_at_tier(base_fire_rate, tier) \
+		* (1.0 + FIRE_RATE_GAIN_PER_LEVEL * (level - 1)) \
+		* (1.0 + mod_total(Loot.MOD_FIRE_RATE))
+	range_radius = base_range * (1.0 + mod_total(Loot.MOD_RANGE))
+	aoe_radius = base_aoe * (1.0 + mod_total(Loot.MOD_AOE))
 
 
 func _show_level_up() -> void:
@@ -214,7 +298,8 @@ func configure(tower_element: int) -> void:
 	var data: Dictionary = ElementTypes.DATA[tower_element]
 	base_damage = data["damage"]
 	base_fire_rate = data["fire_rate"]
-	range_radius = data["range"]
+	base_range = data["range"]
+	base_aoe = 0.0  # every basic tower is single-target; only combos splash
 	cost = data["cost"]
 	_recompute_stats()
 

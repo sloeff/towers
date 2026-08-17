@@ -44,12 +44,15 @@ choice to advance an owned element or unlock a new one, plus per-tower
 gold upgrades to the unlocked tier), all six **combination towers** (one per
 elemental pair, each with a distinct ability — see
 [section 8](#8-elemental-progression-and-combination-towers)) with the status
-primitives behind them (slow, stun, damage-over-time, aura firing mode), game
+primitives behind them (slow, stun, damage-over-time, aura firing mode),
+**potions and items** — enemy drops, the run inventory ("bag"), and the generic
+tower modifier system they feed (see [section 6](#potions-and-items)) — game
 over / victory with restart, and the HTML5 export deployed to GitHub Pages.
 
 **Not built yet:** the second combo tower of each two-result pair (and the
-build-time picker between them), potions and items, the destructible-rock
-shortcut trigger, per-difficulty map variants, sound, and real art.
+build-time picker between them), item trading between players, the
+destructible-rock shortcut trigger, per-difficulty map variants, sound, and real
+art.
 
 ### Next steps, in order
 
@@ -60,7 +63,10 @@ shortcut trigger, per-difficulty map variants, sound, and real art.
    abilities (see [section 8](#8-elemental-progression-and-combination-towers)).
    Their damage, ability magnitudes and transform costs need real play, and the
    two-result pairs still want their second tower + picker.
-3. **Real art** — replace the `_draw()` placeholder shapes.
+3. **Playtest the loot** — nine potions/items with first-draft magnitudes and
+   drop rates (see [Potions and items](#potions-and-items)). Whether drops feel
+   frequent enough to matter without trivialising the run is the open question.
+4. **Real art** — replace the `_draw()` placeholder shapes.
 
 ---
 
@@ -207,26 +213,51 @@ in `Tower.gd` (curve and gains) and `WaveSpawner.gd` (XP per kill).
 > *Upgrade* button drives tier; XP level is hands-off. The naming is
 > deliberately split ("Lv" vs "Tier") so they don't blur together.
 
-### Potions
+### Potions and items
 
-Small one-time upgrades applied to a tower.
+*(Implemented.)* Enemies drop loot when they die. **Potions** are small
+one-time upgrades: drinking one folds its effect into a tower permanently
+and there is no way to take it back off. **Items** are bigger upgrades
+that sit in one of a tower's **3 item slots** and can be unequipped again
+(and, later, traded with other players — see
+[Multiplayer](#11-multiplayer)).
 
-- **Gold Find** — applied to a tower; if that tower lands the killing
-  blow, it earns extra gold on top of the normal kill reward. Amount TBD
-  after playtesting.
+**One generic modifier system, no per-effect flags.** Every potion and
+item is a data entry in `autoload/Loot.gd` carrying a `mods` dictionary of
+generic stat keys, never a named field per effect:
 
-### Items
+| Mod key | Meaning |
+|---|---|
+| `damage_mult` | additive fraction of the tower's base damage |
+| `fire_rate_mult` | additive fraction of base fire rate |
+| `range_mult` | additive fraction of base range |
+| `aoe_mult` | additive fraction of base splash radius |
+| `gold_find` | flat extra gold when this tower lands the killing blow |
+| `magic_find` | additive bonus to the drop chance of what it kills |
 
-Bigger upgrades that can be equipped, and traded with other players.
-No specific items designed yet.
+A tower sums every key across its drunk potions and equipped items
+(`Tower.mod_total`) and folds the totals into `_recompute_stats()`, which
+is the single writer of damage, fire rate, range and splash. Sources of
+the same key **add** — two +10% damage sources give +20%, not +21% — so
+stacking stays legible. Adding an effect that fits an existing key costs
+one DATA entry; a genuinely new axis costs one key and one line in
+`Tower._recompute_stats`.
 
-**Architectural note for both:** the specific list of potions and items
-is deferred until after MVP playtesting, but the code should support a
-wide, open-ended variety of them applied to towers rather than
-hardcoding just Gold Find — e.g. a generic "modifier" resource or data
-structure that a tower holds a list of, instead of one-off flags per
-effect. Building that shape now costs nothing; retrofitting it later
-means touching every stat read.
+The loot list and its magnitudes are in [Balance](#potions-and-items-1).
+
+**Drops.** A drop is rolled only on a *kill*, so leaking a unit is never a
+way to farm loot. The chance depends on the dead unit's rank and is
+improved by the killing tower's magic find; the rarity band is rolled
+separately and is unaffected by magic find. Everything dropped goes
+straight into the run's **bag** (`autoload/Inventory.gd`) — there is no
+pick-up step on the map. The bag is run state: a restart empties it.
+
+**Applying loot is tower-first.** The player selects a tower, then uses a
+potion or fills an item slot from its detail panel; the bag opens filtered
+to that kind for the pick. The bag can also be opened read-only from the
+build bar to see what's held. Selling a tower returns its equipped items
+to the bag — potions drunk into it are gone, which is the cost of
+committing them.
 
 ---
 
@@ -611,6 +642,41 @@ the aura firing mode live on `Enemy` (`apply_slow` / `apply_dot`) and `Tower`,
 reused across combos. Multiple slows take the strongest factor, they don't
 multiply.
 
+### Potions and items
+
+First-draft loot (see [Potions and items](#potions-and-items) for the system).
+Magnitudes are fixed per entry; rarity is only a drop weight and a colour, not a
+multiplier on the effect. Numbers live in `autoload/Loot.gd` (`Loot.DATA`).
+
+| Loot | Kind | Rarity | Effect |
+|---|---|---|---|
+| Gold Find | Potion | Common | +2 gold per kill by this tower |
+| Sharpening Oil | Potion | Common | +10% damage |
+| Swiftness | Potion | Common | +10% fire rate |
+| Farsight | Potion | Rare | +8% range |
+| Ruby Core | Item | Rare | +20% damage |
+| Windstone | Item | Rare | +20% fire rate |
+| Blast Cap | Item | Rare | +25% splash radius |
+| Eagle Lens | Item | Epic | +15% range |
+| Greed Idol | Item | Epic | +5 gold per kill, +25% magic find |
+
+Blast Cap is deliberately dead weight on a single-target tower and strong on a
+splashing combo — the one item whose value depends on where it goes.
+
+| | Value |
+|---|---|
+| Item slots per tower | 3 |
+| Drop chance, basic kill | 4% |
+| Drop chance, all-resist kill | 8% |
+| Drop chance, captain kill | 25% |
+| Drop chance, boss kill | 100% |
+| Rarity weights (common / rare / epic) | 60 / 30 / 10 |
+
+Drop chance is multiplied by `1 + magic_find` of the tower that landed the
+killing blow. Within a rarity band every entry is equally likely. Over a full
+20-wave run (540 basic kills, 5 all-resists, 4 captains, 2 bosses) that lands at
+roughly 25 drops — untuned, and the first thing to check in playtesting.
+
 ### Enemies
 
 Enemy HP is **not** a fixed number per rank. There is one base value that
@@ -689,6 +755,7 @@ HUD.tscn
   ResultPanel             hidden until game over / victory
   ElementSelectPanel      the start-of-run pick, reused for the tier choice
   TowerDetailPanel        floating popover for the selected tower
+  InventoryPanel          the bag: everything dropped this run
 
 Enemy.tscn / Tower.tscn / Projectile.tscn / FloatingText.tscn
   bare Node2D + script each
@@ -709,11 +776,35 @@ range, fire rate and lifetime kill count (so the player can see which
 tower is performing best), a **Sell** button (refunds 75% of build cost,
 floored — frees the cell for a rebuild), and an **Upgrade** button that
 enables when the tower's element out-tiers it (see
-[Elemental tiers](#elemental-tiers-implemented)). `Main` owns the
-selection state and performs the sell and the tier upgrade (charging
-gold); the panel only reads stats and emits intent. The vertical layout
-leaves room for the planned active-buffs section and item slots (the
-modifier system under [Items](#items)) without a rebuild.
+[Elemental tiers](#elemental-tiers-implemented)). Between them sit the loot
+controls: a badge per potion drunk with a **Use potion** button, and the
+tower's three item slots — an empty slot opens the bag filtered to items, a
+filled one unequips back to the bag. `Main` owns the selection state and
+performs the sell, the tier upgrade and every loot move (charging gold, moving
+loot in and out of the `Inventory`); the panel only reads stats and emits
+intent.
+
+### The bag
+
+`InventoryPanel` is a full-screen panel over the board, like the element pick —
+a floating list would be unreadable on a phone. It has two modes: **browse**,
+opened from the build bar's `Bag (n)` button and read-only, and **pick**, opened
+from a tower's detail panel filtered to one `Loot.Kind`, where choosing a row
+emits `loot_picked` and `Main` applies it to the tower that asked. Rows are
+generated from `Inventory` + `Loot.DATA`, so a new potion or item appears with
+no UI change.
+
+### Adding a potion or item
+
+One entry in `Loot.DATA` with a `mods` dictionary of existing mod keys — the
+drop tables, the bag, the badges, the slots and the stat maths all follow. Only
+a genuinely new *kind* of effect needs code: a new mod key plus the line in
+`Tower._recompute_stats` that consumes it.
+
+Because loot can modify range and splash, `Tower._recompute_stats` is the only
+place any effective stat is written; `configure()` and `transform_into()` set
+`base_*` fields only. Assigning `range_radius` or `aoe_radius` directly again
+would let the next tier upgrade silently wipe an item's bonus.
 
 ### Adding an element
 
@@ -827,9 +918,12 @@ Check here before inventing a rule.
   per card for them (`ElementTypes.DATA[...]["pros"]` / `["cons"]`, one
   bullet per entry). Both are empty because the strengths and weaknesses
   beyond the raw stats aren't designed yet.
-- **Potions and items.** No effects list beyond Gold Find. Deferred until
-  after MVP playtesting — but build the generic modifier system described
-  under [Items](#items) rather than hardcoding.
+- **Potions and items.** Built, with nine first-draft entries and untuned
+  drop rates (see [Balance](#potions-and-items-1)). Open: do ~25 drops a
+  run feel too stingy or too generous; should rarity scale an effect's
+  magnitude rather than only its drop weight; and should a tower be able
+  to hold unlimited potions (right now it can, and only item slots are
+  capped at 3).
 - **Multiplayer.** How do players communicate — chat, video, voice? And
   is multiplayer in scope for v1 at all?
 - **Wave interval.** 25 s is a placeholder; the original doc left it as

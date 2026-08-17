@@ -45,6 +45,7 @@ func new_game(difficulty: Difficulty = Difficulty.EASY) -> void:
 	is_over = false
 	unlocked_elements.clear()
 	element_tiers.clear()
+	Inventory.reset()  # loot is run state; a restart must not carry it over
 	gold_changed.emit(gold)
 	lives_changed.emit(lives)
 	wave_changed.emit(wave_number)
