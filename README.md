@@ -17,7 +17,8 @@ design, balance numbers, map layout and implementation notes.
 
 ## Dev journal
 
-- 2026-08-15 — Added the **remaining five combination towers**, one per elemental
+- 2026-08-17 - Added items and potions that be equiped on towers.
+- 2026-08-15 - Added the **remaining five combination towers**, one per elemental
   pair, each with a distinct mechanic: **Lava** (Fire+Earth, burn/damage-over-time),
   **Steam** (Fire+Water, wide pure AoE), **Meteor** (Earth+Air, heavy hit + 1 s stun),
   **Quicksand** (Earth+Water, projectile-less slow aura), and **Hail** (Air+Water,
